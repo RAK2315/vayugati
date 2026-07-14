@@ -10,10 +10,11 @@ ingestion of station readings (OpenAQ v3) and weather (Open-Meteo) into Supabase
 
 ```
 vayugati/
+├── Makefile                        # Supabase CLI convenience targets
 ├── supabase/
-│   ├── schema.sql               # the database (run first, verbatim)
-│   └── migrations/
-│       └── 0001_weather.sql     # additive: weather table (run second)
+│   ├── schema.sql               # the database baseline (run first, verbatim)
+│   └── migrations/              # additive changes, CLI-managed going forward
+│       └── 20260714000000_weather.sql   # weather table (idempotent)
 ├── ingest/                      # Python 3.11 + FastAPI, hourly ingestion
 │   ├── stations.yaml            # station list — adding a station is one line
 │   ├── requirements.txt
@@ -47,7 +48,9 @@ vayugati/
 1. Create a project at https://supabase.com/dashboard.
 2. SQL editor → paste and run `supabase/schema.sql` (creates enums, tables,
    RLS, and seeds the 13 hotspot wards).
-3. SQL editor → paste and run `supabase/migrations/0001_weather.sql`.
+3. SQL editor → paste and run `supabase/migrations/20260714000000_weather.sql`.
+   (Or apply it with the CLI — see *Supabase CLI* below. It's idempotent, so
+   running it both ways is harmless.)
 4. Settings → API: note the **Project URL**, **anon key**, and
    **service_role key**.
 
@@ -111,9 +114,71 @@ Login routes by role: `citizen → /citizen`, `field_officer → /field`,
 ("Logged in as {role} — ward: {ward}") over a shared MapLibre map centered on
 Delhi. Deploy: Vercel, root directory `web`, the two `VITE_*` env vars.
 
+## Connecting the project
+
+Two independent ways to connect to Supabase. They do different jobs — the CLI
+is a developer workflow, MCP gives an AI agent live access.
+
+### Supabase CLI (developer workflow — migrations + typed client)
+
+The model here: `schema.sql` is the one-time baseline you applied by hand;
+`supabase/migrations/` holds additive changes, CLI-managed from now on and
+written idempotently so a push is safe even against a manually-applied DB.
+
+Run these on **your machine** (they need your token; never paste it in chat):
+
+```bash
+# 1. install the CLI (macOS shown; see supabase.com/docs for Linux/Windows/npx)
+brew install supabase/tap/supabase
+
+# 2. from the repo root — creates supabase/config.toml for your CLI version
+#    (leaves schema.sql and migrations/ untouched)
+supabase init
+
+# 3. log in, then link this repo to your hosted project
+supabase login
+supabase link --project-ref <your-project-ref>   # ref = the subdomain in your project URL
+
+# 4. apply migrations (safe even though weather was applied in the dashboard)
+make db-push        # == supabase db push
+
+# 5. generate a typed DB client for the web app
+make gen-types      # writes web/src/lib/database.types.ts
+```
+
+After `make gen-types`, make the web client type-safe (optional, one line in
+`web/src/lib/supabase.ts`):
+
+```ts
+import type { Database } from './database.types'
+export const supabase = createClient<Database>(url, anonKey)
+```
+
+New schema changes from here on: `supabase migration new <name>`, edit the
+generated file, `make db-push`. The linked project ref is stored in
+`supabase/.temp/` (gitignored).
+
+### Supabase MCP (live DB access for Claude)
+
+This lets Claude read/inspect your database directly during a session — verify
+the schema landed, confirm `readings` is filling once ingestion runs, run
+ad-hoc queries. It's a **read-oriented** connection you authorize on claude.ai;
+it does not touch the repo.
+
+1. Create a Supabase **personal access token**: Account → Access Tokens
+   (https://supabase.com/dashboard/account/tokens).
+2. In Claude → Settings → Connectors → add the **Supabase** connector, and
+   authorize it with that token. Scope it to this project if prompted.
+3. (In Claude Code, if you prefer a local server instead of the connector, the
+   official server is `@supabase/mcp-server-supabase` — pass the token via env,
+   never inline, and use `--read-only` unless you intend writes.)
+
+Once connected, tell Claude to check the DB and it can query it directly.
+Revoke the token from the Supabase dashboard to disconnect.
+
 ## Notes
 
-- `0001_weather.sql` is the only thing beyond `schema.sql`: the plan ingests
+- The `weather` migration is the only thing beyond `schema.sql`: the plan ingests
   Open-Meteo hourly but `readings` has no weather columns, so weather lands in
   its own additive `weather` table (per ward, per hour) — needed as forecast
   features in Phase 2. Nothing in `schema.sql` was modified.
