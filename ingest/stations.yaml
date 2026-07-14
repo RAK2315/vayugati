@@ -13,28 +13,28 @@
 
 stations:
   - ward: Narela
-    openaq_location_id: null   # TODO
+    openaq_location_id: 10485  # Narela, Delhi - DPCC
   - ward: Bawana
-    openaq_location_id: null   # TODO
+    openaq_location_id: 8472   # Bawana, Delhi - DPCC
   - ward: Mundka
-    openaq_location_id: null   # TODO
+    openaq_location_id: 10486  # Mundka, Delhi - DPCC
   - ward: Wazirpur
-    openaq_location_id: null   # TODO
+    openaq_location_id: 8915   # Wazirpur, Delhi - DPCC
   - ward: Rohini
-    openaq_location_id: null   # TODO
+    openaq_location_id: 10831  # Rohini, Delhi - DPCC
   - ward: R.K. Puram
-    openaq_location_id: null   # TODO
+    openaq_location_id: null   # not found in OpenAQ India stations
   - ward: Okhla
-    openaq_location_id: null   # TODO
+    openaq_location_id: 8239   # Okhla Phase-2, Delhi - DPCC
   - ward: Jahangirpuri
-    openaq_location_id: null   # TODO
+    openaq_location_id: 8235   # Jahangirpuri, Delhi - DPCC
   - ward: Anand Vihar
-    openaq_location_id: null   # TODO
+    openaq_location_id: 10487  # Anand Vihar, Delhi - DPCC
   - ward: Vivek Vihar
-    openaq_location_id: null   # TODO
+    openaq_location_id: 6938   # Vivek Vihar, Delhi - DPCC
   - ward: Punjabi Bagh
-    openaq_location_id: null   # TODO
+    openaq_location_id: 6357   # Punjabi Bagh, Delhi - DPCC
   - ward: Mayapuri
-    openaq_location_id: null   # TODO
+    openaq_location_id: null   # not found in OpenAQ India stations
   - ward: Dwarka
-    openaq_location_id: null   # TODO
+    openaq_location_id: 6931   # Dwarka-Sector 8, Delhi - DPCC

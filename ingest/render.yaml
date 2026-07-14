@@ -1,0 +1,24 @@
+# Render blueprint for the ingest + intelligence service.
+# In Render: New → Blueprint → point at this repo. Set the secret env vars
+# (marked sync:false) in the dashboard after the first deploy.
+#
+# One always-on web service: the in-process APScheduler runs ingestion at :10
+# and forecast+attribution at :25 each hour, so no separate cron job is needed.
+
+services:
+  - type: web
+    name: vayugati-ingest
+    runtime: docker
+    rootDir: ingest
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: OPENAQ_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

@@ -1,5 +1,6 @@
 """Supabase access. Uses the service_role key: writes bypass RLS by design."""
 
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 from supabase import Client, create_client
@@ -53,3 +54,60 @@ def upsert_reading(row: dict) -> None:
 
 def upsert_weather(row: dict) -> None:
     client().table("weather").upsert(row, on_conflict="ward_id,ts").execute()
+
+
+# ── history reads (for forecast + attribution) ───────────────────────────────
+
+def get_readings_history(hours: int = 24 * 30) -> list[dict]:
+    """Flattened readings joined to their ward: [{ts, ward_id, pm25, pm10, aqi}]."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    rows = (
+        client()
+        .table("readings")
+        .select("ts, pm25, pm10, aqi, stations(ward_id)")
+        .gte("ts", cutoff)
+        .order("ts")
+        .limit(50000)
+        .execute()
+        .data
+    )
+    out = []
+    for r in rows:
+        st = r.get("stations")
+        ward_id = st.get("ward_id") if isinstance(st, dict) else (st[0]["ward_id"] if st else None)
+        if ward_id is None:
+            continue
+        out.append(
+            {"ts": r["ts"], "ward_id": ward_id, "pm25": r["pm25"], "pm10": r["pm10"], "aqi": r["aqi"]}
+        )
+    return out
+
+
+def get_weather_history(hours: int = 24 * 30) -> list[dict]:
+    """[{ts, ward_id, wind_dir, wind_speed, temp_c, humidity, precipitation}]."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    return (
+        client()
+        .table("weather")
+        .select("ts, ward_id, wind_dir, wind_speed, temp_c, humidity, precipitation")
+        .gte("ts", cutoff)
+        .order("ts")
+        .limit(50000)
+        .execute()
+        .data
+    )
+
+
+# ── forecast + attribution writes ────────────────────────────────────────────
+
+def replace_forecasts(ward_id: int, rows: list[dict]) -> None:
+    """Swap in a fresh forecast generation for a ward (delete old, insert new)."""
+    client().table("forecasts").delete().eq("ward_id", ward_id).execute()
+    if rows:
+        client().table("forecasts").insert(rows).execute()
+
+
+def replace_attribution(ward_id: int, row: dict) -> None:
+    """Keep one current attribution per ward."""
+    client().table("attributions").delete().eq("ward_id", ward_id).execute()
+    client().table("attributions").insert(row).execute()

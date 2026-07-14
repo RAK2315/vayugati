@@ -3,8 +3,23 @@
 *Jankari se karyavahi tak* — the intelligence and accountability layer on top of
 Delhi's pollution-response loop. Full plan: [docs/build-plan.md](docs/build-plan.md).
 
-**Current state: Phase 0** — auth + role routing shell, shared map, and hourly
-ingestion of station readings (OpenAQ v3) and weather (Open-Meteo) into Supabase.
+**Current state: Phases 0–4 built.**
+- **P0** — auth + role routing, shared map, hourly ingestion of station readings
+  (OpenAQ v3) and weather (Open-Meteo) into Supabase.
+- **P1** — the loop: citizen reports a source → Claude classifies it → it lands in
+  the ward officer's queue → officer advances it to resolved; every status change
+  writes a timestamped `report_events` row (the Gati metric).
+- **P2** — per-ward 48h PM2.5 forecast on the *local excess* above the city
+  baseline (LightGBM once ~10 days of history exists, diurnal-persistence until
+  then; RMSE vs persistence is always logged).
+- **P3** — directional source attribution via a pollution rose (which wind sector
+  is carrying the load into each ward), shown as the field officer's compass.
+- **P4** — command intelligence: predictive-GRAP alerts (wards forecast to cross
+  severe within 36h), team allocation weighted by predicted local excess, and the
+  signal-to-action (Gati) dashboard.
+
+The forecast + attribution job runs at minute :25 each hour, after ingestion.
+`POST /intel` recomputes both on demand; `POST /classify` classifies a report.
 
 ## Repo layout
 
@@ -110,9 +125,45 @@ npm run dev
 ```
 
 Login routes by role: `citizen → /citizen`, `field_officer → /field`,
-`commander`/`admin` → `/command`. Each view is a Phase 0 stub: the ward card
-("Logged in as {role} — ward: {ward}") over a shared MapLibre map centered on
-Delhi. Deploy: Vercel, root directory `web`, the two `VITE_*` env vars.
+`commander`/`admin` → `/command`.
+- **Citizen** — ward AQI + 48h forecast, report a source (photo + geotag, Claude
+  classifies it), and a status timeline for their own reports.
+- **Field** — ward AQI, forecast, the attribution compass, a daily roll-up, and
+  the action queue ranked by predicted impact (with the AI-drafted note).
+- **Command** — the Gati metric, predictive-GRAP alerts, team allocation, and all
+  13 hotspots over a MapLibre map with colored AQI markers.
+
+The web app calls the ingest service for `/classify`; set `VITE_INGEST_URL` to the
+deployed service URL (defaults to `http://localhost:8000`).
+
+## Deploy
+
+Two pieces: the static web app on Vercel, and the always-on Python service on a
+small host (Railway / Render / Fly). Keep the `service_role` and `ANTHROPIC` keys
+on the Python side only.
+
+### Web → Vercel
+
+- Import the repo, set **root directory** to `web`.
+- `web/vercel.json` handles the Vite build and the SPA rewrite (so deep links like
+  `/field` don't 404 on refresh).
+- Env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_INGEST_URL`
+  (the deployed ingest URL).
+- In Supabase → Authentication → URL Configuration, set the **Site URL** to the
+  Vercel domain so email links resolve.
+
+### Ingest → Railway / Render / Fly (always-on, not serverless)
+
+The in-process APScheduler runs ingestion at :10 and forecast+attribution at :25
+each hour, so it needs a long-lived process — not a serverless function.
+
+- **Render**: New → Blueprint → this repo; `ingest/render.yaml` defines the Docker
+  web service. Fill the four secret env vars in the dashboard.
+- **Railway / Fly / any Docker host**: build `ingest/Dockerfile` (it installs
+  `libgomp1` for LightGBM and binds `$PORT`). `ingest/Procfile` covers buildpack
+  hosts. Health check: `GET /health`.
+- Env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAQ_API_KEY`,
+  `ANTHROPIC_API_KEY`.
 
 ## Connecting the project
 
