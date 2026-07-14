@@ -1,0 +1,235 @@
+-- ============================================================
+-- Vayu Gati — database schema (Supabase / Postgres)
+-- Run in the Supabase SQL editor, or as a migration.
+-- Order matters: enums, tables (parents before children),
+-- helper, RLS, seed.
+-- ============================================================
+
+-- ---------- enums ----------
+create type user_role       as enum ('citizen','field_officer','commander','admin');
+create type report_status   as enum ('submitted','verified','assigned','acted','resolved','rejected');
+create type source_category as enum ('construction_dust','road_dust','open_burning','industrial','vehicular','waste','other');
+
+-- ---------- wards (seed = 13 Delhi hotspots) ----------
+create table wards (
+  id                 serial primary key,
+  name               text not null unique,
+  is_hotspot         boolean not null default true,
+  dominant_source    source_category,        -- DPCC's known label, for validation
+  deputy_commissioner text,                  -- committee head, if known
+  lat                double precision,       -- approx centroid; replace w/ station coords
+  lng                double precision,
+  boundary           jsonb,                  -- GeoJSON polygon, optional
+  created_at         timestamptz default now()
+);
+
+-- ---------- stations ----------
+create table stations (
+  id            serial primary key,
+  ward_id       int references wards(id) on delete set null,
+  name          text not null,
+  source        text,                        -- 'cpcb' | 'dpcc'
+  external_ref  text,                         -- OpenAQ / CPCB station id
+  lat           double precision,
+  lng           double precision,
+  created_at    timestamptz default now()
+);
+
+-- ---------- profiles (one row per auth user) ----------
+create table profiles (
+  id          uuid primary key references auth.users(id) on delete cascade,
+  role        user_role not null default 'citizen',
+  full_name   text,
+  phone       text,
+  lang        text default 'hi',
+  ward_id     int references wards(id),       -- home ward (citizen) / assigned ward (officer)
+  created_at  timestamptz default now()
+);
+
+-- ---------- readings (ingested time series) ----------
+create table readings (
+  id          bigserial primary key,
+  station_id  int not null references stations(id) on delete cascade,
+  ts          timestamptz not null,
+  pm25        double precision,
+  pm10        double precision,
+  no2         double precision,
+  so2         double precision,
+  co          double precision,
+  o3          double precision,
+  aqi         int,
+  unique (station_id, ts)
+);
+create index on readings (station_id, ts desc);
+
+-- ---------- forecasts (per ward, per horizon) ----------
+create table forecasts (
+  id             bigserial primary key,
+  ward_id        int not null references wards(id) on delete cascade,
+  generated_at   timestamptz not null default now(),
+  horizon_ts     timestamptz not null,        -- the time this row predicts
+  pm25_pred      double precision,
+  baseline_pred  double precision,            -- city-wide baseline
+  local_excess   double precision,            -- pm25_pred - baseline_pred (the officer's lever)
+  confidence     double precision,
+  model_version  text
+);
+create index on forecasts (ward_id, horizon_ts);
+
+-- ---------- attributions (per ward, time-specific, directional) ----------
+create table attributions (
+  id           bigserial primary key,
+  ward_id      int not null references wards(id) on delete cascade,
+  ts           timestamptz not null default now(),
+  breakdown    jsonb,                          -- {"construction":0.45,"traffic":0.30,...}
+  direction    text,                           -- e.g. 'NW' where the current load comes from
+  confidence   double precision,
+  method       text
+);
+create index on attributions (ward_id, ts desc);
+
+-- ---------- reports (citizen -> the loop starts here) ----------
+create table reports (
+  id             bigserial primary key,
+  reporter_id    uuid references profiles(id) on delete set null,
+  ward_id        int references wards(id),
+  lat            double precision,
+  lng            double precision,
+  photo_url      text,                          -- Supabase Storage path
+  description    text,
+  ai_category    source_category,               -- Claude's classification
+  ai_meta        jsonb,                          -- confidence, drafted note, etc.
+  status         report_status not null default 'submitted',
+  created_at     timestamptz default now()
+);
+create index on reports (ward_id, status);
+
+-- ---------- actions (the enforcement queue) ----------
+create table actions (
+  id             bigserial primary key,
+  report_id      bigint references reports(id) on delete set null,
+  ward_id        int not null references wards(id),
+  assigned_to    uuid references profiles(id),
+  type           text,                          -- 'inspect', 'sprinkle', 'notice', ...
+  priority_score double precision,              -- ranked by predicted impact
+  evidence       jsonb,
+  status         report_status not null default 'assigned',
+  proof_url      text,
+  created_at     timestamptz default now(),
+  resolved_at    timestamptz
+);
+create index on actions (ward_id, status, priority_score desc);
+
+-- ---------- report_events (audit trail = the Gati metric) ----------
+create table report_events (
+  id          bigserial primary key,
+  report_id   bigint not null references reports(id) on delete cascade,
+  status      report_status not null,
+  actor_id    uuid references profiles(id),
+  note        text,
+  ts          timestamptz not null default now()
+);
+create index on report_events (report_id, ts);
+
+-- ============================================================
+-- Row Level Security
+-- ============================================================
+
+-- helper: the requesting user's role
+create or replace function auth_role() returns user_role
+language sql stable security definer set search_path = public as $$
+  select role from profiles where id = auth.uid()
+$$;
+
+-- helper: the requesting user's ward
+create or replace function auth_ward() returns int
+language sql stable security definer set search_path = public as $$
+  select ward_id from profiles where id = auth.uid()
+$$;
+
+alter table profiles       enable row level security;
+alter table wards          enable row level security;
+alter table stations       enable row level security;
+alter table readings       enable row level security;
+alter table forecasts      enable row level security;
+alter table attributions   enable row level security;
+alter table reports        enable row level security;
+alter table actions        enable row level security;
+alter table report_events  enable row level security;
+
+-- profiles: read/update own; admin sees all
+create policy profiles_self_read   on profiles for select using (id = auth.uid() or auth_role() = 'admin');
+create policy profiles_self_update on profiles for update using (id = auth.uid());
+create policy profiles_insert_self on profiles for insert with check (id = auth.uid());
+
+-- public reference + intelligence data: any authenticated user can read.
+-- writes come from the Python service using the service_role key, which bypasses RLS.
+create policy wards_read        on wards        for select using (auth.role() = 'authenticated');
+create policy stations_read     on stations     for select using (auth.role() = 'authenticated');
+create policy readings_read     on readings     for select using (auth.role() = 'authenticated');
+create policy forecasts_read    on forecasts    for select using (auth.role() = 'authenticated');
+create policy attributions_read on attributions for select using (auth.role() = 'authenticated');
+
+-- reports:
+--   citizen inserts own and reads own
+--   field officer reads + updates reports in their ward
+--   commander / admin read all
+create policy reports_insert_own on reports for insert
+  with check (reporter_id = auth.uid());
+
+create policy reports_read on reports for select using (
+  reporter_id = auth.uid()
+  or auth_role() in ('commander','admin')
+  or (auth_role() = 'field_officer' and ward_id = auth_ward())
+);
+
+create policy reports_update_officer on reports for update using (
+  auth_role() in ('commander','admin')
+  or (auth_role() = 'field_officer' and ward_id = auth_ward())
+);
+
+-- actions: officers see/act in their ward, commanders everywhere
+create policy actions_read on actions for select using (
+  auth_role() in ('commander','admin')
+  or (auth_role() = 'field_officer' and ward_id = auth_ward())
+);
+create policy actions_write on actions for all using (
+  auth_role() in ('commander','admin')
+  or (auth_role() = 'field_officer' and ward_id = auth_ward())
+) with check (
+  auth_role() in ('commander','admin')
+  or (auth_role() = 'field_officer' and ward_id = auth_ward())
+);
+
+-- report_events: insert by any authenticated actor; read follows report visibility
+create policy events_insert on report_events for insert
+  with check (auth.role() = 'authenticated');
+create policy events_read on report_events for select using (
+  auth_role() in ('commander','admin')
+  or exists (
+    select 1 from reports r
+    where r.id = report_events.report_id
+      and (r.reporter_id = auth.uid()
+           or (auth_role() = 'field_officer' and r.ward_id = auth_ward()))
+  )
+);
+
+-- ============================================================
+-- Seed: the 13 official Delhi pollution hotspots
+-- lat/lng are APPROXIMATE locality centroids. Replace with the
+-- exact DPCC monitoring-station coordinates before you rely on them.
+-- ============================================================
+insert into wards (name, is_hotspot, dominant_source, lat, lng) values
+  ('Narela',        true, 'industrial',        28.850, 77.090),
+  ('Bawana',        true, 'construction_dust', 28.800, 77.030),
+  ('Mundka',        true, 'construction_dust', 28.680, 77.030),
+  ('Wazirpur',      true, 'industrial',        28.700, 77.160),
+  ('Rohini',        true, 'construction_dust', 28.740, 77.070),
+  ('R.K. Puram',    true, 'vehicular',         28.560, 77.180),
+  ('Okhla',         true, 'industrial',        28.530, 77.270),
+  ('Jahangirpuri',  true, 'waste',             28.730, 77.160),
+  ('Anand Vihar',   true, 'vehicular',         28.650, 77.310),
+  ('Vivek Vihar',   true, 'vehicular',         28.670, 77.310),
+  ('Punjabi Bagh',  true, 'road_dust',         28.670, 77.130),
+  ('Mayapuri',      true, 'industrial',        28.630, 77.130),
+  ('Dwarka',        true, 'construction_dust', 28.580, 77.050);

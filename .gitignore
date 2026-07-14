@@ -1,0 +1,19 @@
+# env — never commit keys
+.env
+.env.local
+*.env
+
+# node
+node_modules/
+dist/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/

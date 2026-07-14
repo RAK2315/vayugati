@@ -1,0 +1,40 @@
+# Stations to ingest from OpenAQ v3. Adding a station = one new entry here.
+#
+# ward:                must match wards.name exactly (seeded by schema.sql)
+# openaq_location_id:  the OpenAQ v3 LOCATION id for the station.
+#                      Find it at https://explore.openaq.org — search the
+#                      station name; the id is the number in the URL.
+#
+# TODO(adarsh): fill in the real OpenAQ location ids for the 13 hotspot
+# stations (DPCC/CPCB). They are intentionally left null — DO NOT GUESS.
+# Entries with a null id are skipped (with a warning) until filled in.
+# Station name and coordinates are taken from OpenAQ metadata at ingest
+# time, so nothing else is needed per station.
+
+stations:
+  - ward: Narela
+    openaq_location_id: null   # TODO
+  - ward: Bawana
+    openaq_location_id: null   # TODO
+  - ward: Mundka
+    openaq_location_id: null   # TODO
+  - ward: Wazirpur
+    openaq_location_id: null   # TODO
+  - ward: Rohini
+    openaq_location_id: null   # TODO
+  - ward: R.K. Puram
+    openaq_location_id: null   # TODO
+  - ward: Okhla
+    openaq_location_id: null   # TODO
+  - ward: Jahangirpuri
+    openaq_location_id: null   # TODO
+  - ward: Anand Vihar
+    openaq_location_id: null   # TODO
+  - ward: Vivek Vihar
+    openaq_location_id: null   # TODO
+  - ward: Punjabi Bagh
+    openaq_location_id: null   # TODO
+  - ward: Mayapuri
+    openaq_location_id: null   # TODO
+  - ward: Dwarka
+    openaq_location_id: null   # TODO
