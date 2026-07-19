@@ -1,11 +1,11 @@
 // India NAQI scale — shared source of truth for label, colors, and guidance.
 const LEVELS = [
-  { max: 50,       label: 'Good',         hex: '#22c55e', bg: 'bg-green-100',  text: 'text-green-800',  advice: 'Air is clean — enjoy the outdoors.' },
+  { max: 50,       label: 'Good',         hex: '#22c55e', bg: 'bg-green-100',  text: 'text-green-800',  advice: 'Air is clean - enjoy the outdoors.' },
   { max: 100,      label: 'Satisfactory', hex: '#84cc16', bg: 'bg-lime-100',   text: 'text-lime-800',   advice: 'Acceptable. Sensitive people take minor care.' },
   { max: 200,      label: 'Moderate',     hex: '#eab308', bg: 'bg-yellow-100', text: 'text-yellow-800', advice: 'Sensitive groups should limit prolonged exertion.' },
   { max: 300,      label: 'Poor',         hex: '#f97316', bg: 'bg-orange-100', text: 'text-orange-800', advice: 'Reduce outdoor exertion; mask up outside.' },
   { max: 400,      label: 'Very Poor',    hex: '#ef4444', bg: 'bg-red-100',    text: 'text-red-800',    advice: 'Avoid outdoor activity; keep windows shut.' },
-  { max: Infinity, label: 'Severe',       hex: '#9333ea', bg: 'bg-purple-100', text: 'text-purple-900', advice: 'Health emergency — stay indoors, use a purifier.' },
+  { max: Infinity, label: 'Severe',       hex: '#9333ea', bg: 'bg-purple-100', text: 'text-purple-900', advice: 'Health emergency - stay indoors, use a purifier.' },
 ]
 
 const UNKNOWN = { label: 'No data', hex: '#94a3b8', bg: 'bg-slate-100', text: 'text-slate-500', advice: 'Waiting for the next station reading.' }
@@ -28,7 +28,7 @@ export function AqiGauge({ aqi }: { aqi: number | null }) {
           style={{ backgroundColor: `${level.hex}1a` }}
         >
           <span className="text-4xl font-extrabold tabular-nums leading-none" style={{ color: level.hex }}>
-            {aqi ?? '—'}
+            {aqi ?? '-'}
           </span>
           <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: level.hex }}>
             AQI
@@ -74,7 +74,7 @@ export default function AqiBadge({ aqi }: { aqi: number | null }) {
       style={{ backgroundColor: `${level.hex}1a` }}
     >
       <span className="text-2xl font-bold tabular-nums leading-none" style={{ color: level.hex }}>
-        {aqi ?? '—'}
+        {aqi ?? '-'}
       </span>
       <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide" style={{ color: level.hex }}>
         AQI

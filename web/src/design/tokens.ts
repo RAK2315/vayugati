@@ -13,7 +13,7 @@
  * See docs/DESIGN_SYSTEM.md for the full rationale.
  */
 
-/** Primary brand ramp — anchored on the dark-brown mark, #422B1C (ink.700). */
+/** Primary brand ramp - anchored on the dark-brown mark, #422B1C (ink.700). */
 export const ink = {
   50: '#F6EFE4', // warm cream — page/app background
   100: '#EDE0CB',
@@ -27,7 +27,7 @@ export const ink = {
   900: '#241109',
 } as const
 
-/** Secondary brand ramp — anchored on the sky-blue mark, #C4F1FF (sky.200). */
+/** Secondary brand ramp - anchored on the sky-blue mark, #C4F1FF (sky.200). */
 export const sky = {
   50: '#F2FCFF',
   100: '#E5F9FF',
@@ -107,7 +107,7 @@ export const spacing = {
   '2xl': 32,
 } as const
 
-/** Restrained radii — compact, government-operations feel, not consumer-rounded. */
+/** Restrained radii - compact, government-operations feel, not consumer-rounded. */
 export const radii = {
   sm: 6,
   md: 10,
@@ -115,7 +115,7 @@ export const radii = {
   full: 9999,
 } as const
 
-/** Subtle shadows only — thin borders do most of the separation work. */
+/** Subtle shadows only - thin borders do most of the separation work. */
 export const shadows = {
   card: '0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.08)',
   cardLg: '0 4px 6px -1px rgba(16,24,40,.06), 0 10px 24px -4px rgba(16,24,40,.10)',

@@ -14,7 +14,7 @@ import { EmptyState, Label, PartialDataBadge, UnavailableBadge } from './ui'
  */
 
 function pct(p: number | null): string {
-  return p == null ? '—' : `${Math.round(p * 100)}%`
+  return p == null ? '-' : `${Math.round(p * 100)}%`
 }
 
 function Section({
@@ -76,7 +76,7 @@ export default function IncidentEvidencePanel({ detail }: { detail: IncidentDeta
           </div>
           <div>
             <dt className="text-ink-400">Independent reporters</dt>
-            <dd className="font-semibold text-ink-800">{independentReporters || '—'}</dd>
+            <dd className="font-semibold text-ink-800">{independentReporters || '-'}</dd>
           </div>
           <div>
             <dt className="text-ink-400">Officer evidence</dt>
@@ -90,7 +90,7 @@ export default function IncidentEvidencePanel({ detail }: { detail: IncidentDeta
         <p className="mt-2 text-[11px] leading-relaxed text-ink-400">{describeMatchingRule()}</p>
       </Section>
 
-      {/* Probable source hypotheses moved to SourceAttributionPanel (Phase 7) —
+      {/* Probable source hypotheses moved to SourceAttributionPanel (Phase 7) -
           ranked, with evidence-scored confidence, contradictions, missing
           evidence, classification and responsibility routing. Shown above
           this panel in the incident workspace whenever a current hypothesis
@@ -146,15 +146,15 @@ export default function IncidentEvidencePanel({ detail }: { detail: IncidentDeta
           <dl className="grid grid-cols-3 gap-2 text-xs">
             <div>
               <dt className="text-ink-400">PM2.5</dt>
-              <dd className="font-semibold tabular-nums text-ink-800">{sensor.pm25 ?? '—'}</dd>
+              <dd className="font-semibold tabular-nums text-ink-800">{sensor.pm25 ?? '-'}</dd>
             </div>
             <div>
               <dt className="text-ink-400">PM10</dt>
-              <dd className="font-semibold tabular-nums text-ink-800">{sensor.pm10 ?? '—'}</dd>
+              <dd className="font-semibold tabular-nums text-ink-800">{sensor.pm10 ?? '-'}</dd>
             </div>
             <div>
               <dt className="text-ink-400">AQI</dt>
-              <dd className="font-semibold tabular-nums text-ink-800">{sensor.aqi ?? '—'}</dd>
+              <dd className="font-semibold tabular-nums text-ink-800">{sensor.aqi ?? '-'}</dd>
             </div>
             {sensor.ts && (
               <div className="col-span-3 text-[11px] text-ink-400">
@@ -186,7 +186,7 @@ export default function IncidentEvidencePanel({ detail }: { detail: IncidentDeta
       <Section title="Contradictory evidence" count={contradicting.length} unavailable={missing('Evidence')}>
         {contradicting.length === 0 ? (
           <p className="text-xs text-ink-500">
-            None recorded. Absence of contradictory evidence is not confirmation — it may simply not have been looked for.
+            None recorded. Absence of contradictory evidence is not confirmation - it may simply not have been looked for.
           </p>
         ) : (
           <ul className="space-y-1 text-xs text-ink-600">

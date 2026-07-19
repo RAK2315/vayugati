@@ -148,7 +148,7 @@ function DispatchCard({ d, onDone }: { d: TaskDispatchRow; onDone: () => void })
       </div>
       {d.status === 'completed' && (
         <p className="mt-1.5 text-[11px] text-ink-500">
-          Marked complete — use the intervention card below to attach evidence and record the outcome.
+          Marked complete - use the intervention card below to attach evidence and record the outcome.
         </p>
       )}
       {error && <p className="mt-1.5 text-[11px] text-status-critical">{error}</p>}

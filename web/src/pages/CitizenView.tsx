@@ -38,7 +38,7 @@ function windDirLabel(deg: number | null): string {
 }
 
 function timeAgo(ts: string | null): string {
-  if (!ts) return '—'
+  if (!ts) return '-'
   const h = Math.floor((Date.now() - new Date(ts).getTime()) / 3_600_000)
   return h < 1 ? 'just now' : `${h}h ago`
 }
@@ -102,7 +102,7 @@ export default function CitizenView() {
       let photoUrl: string | null = null
       if (photo) {
         try { photoUrl = await uploadReportPhoto(photo, session.user.id) }
-        catch { setSubmitMsg('Photo upload failed — submitting without it.') }
+        catch { setSubmitMsg('Photo upload failed - submitting without it.') }
       }
       const id = await insertReport({
         wardId: profile.wardId, reporterId: session.user.id,
@@ -130,7 +130,7 @@ export default function CitizenView() {
       resetForm()
       setSubmitMsg(
         linked
-          ? 'Report submitted and added to an incident — track it below.'
+          ? 'Report submitted and added to an incident - track it below.'
           : 'Report submitted. We could not attach it to an incident yet; the team will review it.',
       )
       fetchMyReports(session.user.id).then(setMyReports)
@@ -236,7 +236,7 @@ export default function CitizenView() {
           {submitMsg && <p className="border-t border-slate-100 bg-green-50/50 px-5 py-2 text-xs text-green-700">{submitMsg}</p>}
         </Card>
 
-        {/* Targeted verification requests — shown only when safe and relevant */}
+        {/* Targeted verification requests - shown only when safe and relevant */}
         <CitizenVerificationCard />
 
         {/* My reports */}
@@ -265,7 +265,7 @@ export default function CitizenView() {
                       <CitizenIncidentCard incidentId={r.incident_id} />
                     ) : (
                       <p className="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-500">
-                        Not yet attached to an incident — the team will review it.
+                        Not yet attached to an incident - the team will review it.
                       </p>
                     )}
                   </div>

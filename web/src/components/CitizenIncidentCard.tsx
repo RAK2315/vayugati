@@ -87,12 +87,12 @@ export default function CitizenIncidentCard({ incidentId }: { incidentId: number
         </p>
       )}
 
-      {/* Phase 4: "did the action actually happen?" — shown outside the
+      {/* Phase 4: "did the action actually happen?" - shown outside the
           collapsed timeline since it is actionable, not just informational. */}
       <CitizenActionVerificationCard view={view} />
 
       {/* Phase 5.1: for a closed incident, the final outcome and a way to
-          report that the problem returned — shown outside the collapsed
+          report that the problem returned - shown outside the collapsed
           timeline for the same reason as the card above. */}
       <CitizenRecurrenceCard view={view} />
 

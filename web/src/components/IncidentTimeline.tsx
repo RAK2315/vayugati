@@ -73,7 +73,7 @@ export default function IncidentTimeline({
                 {showVisibility && !e.is_public && (
                   <span
                     className="rounded bg-ink-100 px-1 text-[10px] font-bold uppercase tracking-wide text-ink-500"
-                    title="Internal only — not shown to the citizen who reported this"
+                    title="Internal only - not shown to the citizen who reported this"
                   >
                     Internal
                   </span>

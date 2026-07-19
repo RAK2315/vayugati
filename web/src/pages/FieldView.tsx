@@ -33,7 +33,7 @@ const NEXT_STATUS: Record<string, { label: string; next: ReportStatus; color: st
 }
 
 function timeAgo(ts: string | null): string {
-  if (!ts) return '—'
+  if (!ts) return '-'
   const h = Math.floor((Date.now() - new Date(ts).getTime()) / 3_600_000)
   return h < 1 ? 'just now' : `${h}h ago`
 }
@@ -113,7 +113,7 @@ export default function FieldView() {
   return (
     <AppShell subtitle="Field Ops">
       <div className="mx-auto w-full max-w-2xl flex-1 space-y-3 overflow-y-auto p-4">
-        {/* Evidence missions (Phase 3) — a distinct task type from the report
+        {/* Evidence missions (Phase 3) - a distinct task type from the report
             action queue below, so it gets its own entry point rather than being
             mixed into a single undifferentiated list. */}
         {missionCount != null && missionCount > 0 && (
@@ -139,7 +139,7 @@ export default function FieldView() {
             {loading ? <Skeleton className="h-16 w-16" /> : <AqiBadge aqi={reading?.aqi ?? null} />}
             <div className="text-sm text-slate-600">
               <p className="font-medium text-slate-800">{profile.wardName}</p>
-              <p>PM2.5 {reading?.pm25 ?? '—'} µg/m³</p>
+              <p>PM2.5 {reading?.pm25 ?? '-'} µg/m³</p>
               <p className="mt-0.5 text-xs text-slate-400">{timeAgo(reading?.ts ?? null)}</p>
             </div>
           </Card>
@@ -148,7 +148,7 @@ export default function FieldView() {
               <div className="grid grid-cols-3 gap-2">
                 <Stat value={rollup.open} label="open" />
                 <Stat value={rollup.resolved} label="resolved" accent="text-green-600" />
-                <Stat value={rollup.medianGatiHours != null ? `${rollup.medianGatiHours.toFixed(1)}h` : '—'} label="gati" accent="text-brand-600" />
+                <Stat value={rollup.medianGatiHours != null ? `${rollup.medianGatiHours.toFixed(1)}h` : '-'} label="gati" accent="text-brand-600" />
               </div>
             ) : (
               <Skeleton className="h-16 w-full" />
@@ -178,7 +178,7 @@ export default function FieldView() {
               {[0, 1].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
             </div>
           ) : rankedReports.length === 0 ? (
-            <EmptyState icon="✅">No open reports — all clear.</EmptyState>
+            <EmptyState icon="✅">No open reports - all clear.</EmptyState>
           ) : (
             <ul className="divide-y divide-slate-100">
               {rankedReports.map(({ report: r, score }, i) => {

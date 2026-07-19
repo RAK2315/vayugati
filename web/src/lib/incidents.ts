@@ -575,7 +575,7 @@ export interface CreateMissionParams {
   incidentId: number
   missionType: Database['public']['Tables']['evidence_missions']['Insert']['mission_type']
   assignedTo?: string | null
-  /** Why this evidence is needed — required by plan §10, so required here. */
+  /** Why this evidence is needed - required by plan §10, so required here. */
   rationale: string
   /** Citizen-facing wording. Kept separate from `rationale`, which may be internal. */
   publicPrompt?: string | null
@@ -1335,7 +1335,7 @@ export interface FieldCompletionParams {
   startedAt: string | null
   completedAt: string | null
   photoUrls: string[]
-  /** { [checklistItemId]: answer } — short, source-specific, mirrors evidence-mission checklists. */
+  /** { [checklistItemId]: answer } - short, source-specific, mirrors evidence-mission checklists. */
   checklistResponse: Record<string, unknown>
   lat: number | null
   lng: number | null
@@ -1444,7 +1444,7 @@ export interface RecordImpactEvaluationParams {
   after: number | null
   observationWindowHours: number
   stationLabel: string
-  /** 0–1. Below 0.5 the outcome is inconclusive regardless of the readings — see incidentRules.MIN_COMPLETENESS_FOR_RESULT. */
+  /** 0–1. Below 0.5 the outcome is inconclusive regardless of the readings - see incidentRules.MIN_COMPLETENESS_FOR_RESULT. */
   dataCompleteness: number
   notes?: string | null
 }
@@ -1756,7 +1756,7 @@ export async function createLinkedIncidentFromRecurrence(
     recurrenceOfIncidentId: originalIncidentId,
   })
 
-  const publicResponse = 'Confirmed — a new incident has been opened to track this.'
+  const publicResponse = 'Confirmed - a new incident has been opened to track this.'
   await reviewRecurrenceReport(
     reportId,
     originalIncidentId,
@@ -1795,7 +1795,7 @@ export async function mergeRecurrenceIntoIncident(
     collectedBy: actorId,
   })
 
-  const publicResponse = 'Confirmed — linked to an incident already being tracked nearby.'
+  const publicResponse = 'Confirmed - linked to an incident already being tracked nearby.'
   await reviewRecurrenceReport(
     reportId,
     originalIncidentId,
@@ -1893,7 +1893,7 @@ export async function continueMonitoringPredictedIncident(
     incidentId,
     eventType: 'predicted_incident_reviewed',
     actorId,
-    note: note?.trim() || 'Reviewed — continuing to monitor before deciding.',
+    note: note?.trim() || 'Reviewed - continuing to monitor before deciding.',
     isPublic: false,
     payload: { decision: 'continue_monitoring' },
   })

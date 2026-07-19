@@ -18,7 +18,7 @@ function bandColor(v: number): string {
 export default function ForecastChart({ points }: { points: ForecastPoint[] }) {
   const data = points.filter((p) => p.pm25_pred != null) as (ForecastPoint & { pm25_pred: number })[]
   if (data.length < 2) {
-    return <p className="text-sm text-gray-400">No forecast yet — needs a few hours of readings first.</p>
+    return <p className="text-sm text-gray-400">No forecast yet - needs a few hours of readings first.</p>
   }
 
   const W = 320

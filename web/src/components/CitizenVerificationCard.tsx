@@ -100,7 +100,7 @@ export default function CitizenVerificationCard() {
                   </div>
                 </div>
               ) : answered ? (
-                <p className="text-sm text-green-700">✓ Thank you — your answer was sent to the team.</p>
+                <p className="text-sm text-green-700">✓ Thank you - your answer was sent to the team.</p>
               ) : (
                 <>
                   <p className="text-sm text-ink-800">

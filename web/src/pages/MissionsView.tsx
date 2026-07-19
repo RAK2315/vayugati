@@ -143,7 +143,7 @@ function MissionForm({ m, onDone }: { m: MissionWithIncident; onDone: () => void
         try {
           photoUrl = await uploadReportPhoto(photo, session.user.id)
         } catch {
-          setError('Photo upload failed — submitting the result without it.')
+          setError('Photo upload failed - submitting the result without it.')
         }
       }
 
@@ -228,7 +228,7 @@ function MissionForm({ m, onDone }: { m: MissionWithIncident; onDone: () => void
         {geoError && <p className="mt-1 text-[11px] text-status-warning">{geoError} Proof will be saved without GPS.</p>}
         {photo && !coords && !geoBusy && (
           <p className="mt-1 text-[11px] text-status-warning">
-            This photo has no location attached — it is weaker evidence without one.
+            This photo has no location attached - it is weaker evidence without one.
           </p>
         )}
       </div>
@@ -249,7 +249,7 @@ function MissionForm({ m, onDone }: { m: MissionWithIncident; onDone: () => void
           ))}
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-ink-400">
-          Confirming officially verifies the source. &ldquo;Source not present&rdquo; does not close the incident — the
+          Confirming officially verifies the source. &ldquo;Source not present&rdquo; does not close the incident - the
           pollution may be real with a different cause, so it returns for review.
         </p>
       </div>
@@ -342,7 +342,7 @@ function InterventionCompletionForm({ item, onDone }: { item: InterventionWithIn
         try {
           photoUrls.push(await uploadReportPhoto(f, session.user.id))
         } catch {
-          setError((e) => e ?? 'One or more photos failed to upload — continuing without them.')
+          setError((e) => e ?? 'One or more photos failed to upload - continuing without them.')
         }
       }
 
@@ -505,10 +505,10 @@ function InterventionCompletionForm({ item, onDone }: { item: InterventionWithIn
         onClick={submit}
         className="focus-ring mt-4 w-full rounded-lg bg-brand-700 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:opacity-50"
       >
-        {busy ? 'Submitting…' : couldNotComplete ? 'Submit — not completed' : 'Submit completion'}
+        {busy ? 'Submitting…' : couldNotComplete ? 'Submit - not completed' : 'Submit completion'}
       </button>
       <p className="mt-2 text-[11px] leading-relaxed text-ink-400">
-        This records what happened operationally. It does not by itself mean pollution was reduced — the command
+        This records what happened operationally. It does not by itself mean pollution was reduced - the command
         workspace records that separately from a before/after reading.
       </p>
 
@@ -640,13 +640,13 @@ export default function MissionsView() {
     <AppShell subtitle="Evidence missions">
       <div className="mx-auto w-full max-w-2xl flex-1 space-y-3 overflow-y-auto p-4">
         {/* Dispatch tasks (Phase 9) are the routing/lifecycle WRAPPER around an
-            intervention — acknowledge/accept/reject/start before the
+            intervention - acknowledge/accept/reject/start before the
             evidence/outcome capture below even becomes relevant. */}
         <FieldTaskDispatchCard />
 
         {/* Interventions (Phase 4) are a distinct task type from evidence
-            missions — a mission asks "what is the source?", an intervention
-            asks "go do something about it" — so they get separate cards rather
+            missions - a mission asks "what is the source?", an intervention
+            asks "go do something about it" - so they get separate cards rather
             than one undifferentiated list. */}
         <InterventionsCard />
 
@@ -697,7 +697,7 @@ export default function MissionsView() {
                         {m.incident?.ward_name && ` · ${m.incident.ward_name}`}
                         {m.leadingCategory && ` · suspected ${m.leadingCategory.replace(/_/g, ' ')}`}
                       </p>
-                      {/* Why this evidence is needed — required by plan §10 */}
+                      {/* Why this evidence is needed - required by plan §10 */}
                       {m.mission.rationale && (
                         <p className="mt-1.5 rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs italic text-brand-800">
                           {m.mission.rationale}

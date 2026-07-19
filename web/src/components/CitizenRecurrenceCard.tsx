@@ -24,8 +24,8 @@ import {
  */
 
 const OUTCOME_LABEL: Record<string, string> = {
-  effective: 'The action worked — pollution levels came down.',
-  partly_effective: 'The action partly worked — levels improved somewhat.',
+  effective: 'The action worked - pollution levels came down.',
+  partly_effective: 'The action partly worked - levels improved somewhat.',
   ineffective: "The action didn't measurably help.",
   inconclusive: 'Not enough data to say whether the action helped.',
   source_disproved: 'The suspected source was ruled out.',
@@ -138,7 +138,7 @@ export default function CitizenRecurrenceCard({ view }: { view: CitizenIncidentV
             <li key={r.report_id} className="text-xs text-ink-600">
               <span className="font-semibold text-ink-700">{RECURRENCE_TYPE_LABEL[r.recurrence_type]}:</span>{' '}
               {citizenRecurrenceStatusLabel(r.review_status, r.outcome_kind)}
-              {r.public_response && <span className="text-ink-500"> — {r.public_response}</span>}
+              {r.public_response && <span className="text-ink-500"> - {r.public_response}</span>}
             </li>
           ))}
         </ul>

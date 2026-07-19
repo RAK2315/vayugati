@@ -163,7 +163,7 @@ export function canCreateTask(level: SourceConfidence, kind: TaskKind): boolean 
 export function taskBlockedReason(level: SourceConfidence, kind: TaskKind): string | null {
   if (canCreateTask(level, kind)) return null
   if (level === 'suspected') {
-    return 'This source is only suspected. Collect evidence first — action tasks need a corroborated source.'
+    return 'This source is only suspected. Collect evidence first - action tasks need a corroborated source.'
   }
   return 'Enforcement needs an officially verified source, confirmed by an authorised officer or official record.'
 }
@@ -323,7 +323,7 @@ export function citizenVerificationSafety(ctx: CitizenVerificationContext): Safe
     return { safe: false, reason: 'This request is already closed.' }
   }
   if (ctx.incidentStatus === 'closed') {
-    return { safe: false, reason: 'This incident is closed — no verification is needed.' }
+    return { safe: false, reason: 'This incident is closed - no verification is needed.' }
   }
   if (ctx.leadingCategory && HAZARDOUS_FOR_CITIZENS.includes(ctx.leadingCategory)) {
     return {
@@ -334,7 +334,7 @@ export function citizenVerificationSafety(ctx: CitizenVerificationContext): Safe
   if (ctx.severity === 'severe') {
     return {
       safe: false,
-      reason: 'Air quality here is severe right now. Please stay indoors — we will not ask you to go outside to check.',
+      reason: 'Air quality here is severe right now. Please stay indoors - we will not ask you to go outside to check.',
     }
   }
   return { safe: true, reason: null }
@@ -586,9 +586,9 @@ export const RECOMMENDED_ACTION_SUGGESTIONS: Record<SourceCategory, string> = {
   other: 'Field inspection to establish the appropriate action',
   // Phase 7 meta-categories: none of these name a specific local source, so
   // none suggests a local enforcement/inspection action.
-  regional_transport: 'No local enforcement action — issue a public advisory and continue monitoring (regional contribution).',
+  regional_transport: 'No local enforcement action - issue a public advisory and continue monitoring (regional contribution).',
   mixed: 'Confirm which of the leading candidate sources is actually present before recommending a single action.',
-  unresolved: 'Gather more evidence before recommending an action — no source is confidently identified yet.',
+  unresolved: 'Gather more evidence before recommending an action - no source is confidently identified yet.',
 }
 
 // ── impact evaluation: before/after (Phase 4, plan §15/§16) ─────────────────
@@ -611,7 +611,7 @@ export const EFFECTIVE_REDUCTION = 0.4
 export const PARTLY_EFFECTIVE_REDUCTION = 0.15
 
 export const BEFORE_AFTER_LIMITATION =
-  'Before/after comparison only. Not weather-adjusted and not causal proof — concurrent weather and citywide changes are not controlled for.'
+  'Before/after comparison only. Not weather-adjusted and not causal proof - concurrent weather and citywide changes are not controlled for.'
 
 /**
  * Preview of what `record_impact_evaluation` will compute, so the command
@@ -711,17 +711,17 @@ export type PlaybookActionType = (typeof PLAYBOOK_ACTION_TYPES)[number]
 
 export const PLAYBOOK_ACTION_TYPE_LABEL: Record<PlaybookActionType, string> = {
   inspect: 'Inspection',
-  sprinkle: 'Preventive — water sprinkling',
-  notice: 'Preventive — notice',
-  vacuum_sweeping: 'Preventive — mechanical/vacuum sweeping',
+  sprinkle: 'Preventive - water sprinkling',
+  notice: 'Preventive - notice',
+  vacuum_sweeping: 'Preventive - mechanical/vacuum sweeping',
   extinguish_removal: 'Extinguish and remove',
   traffic_management: 'Traffic-point management',
   advisory_monitoring: 'Advisory and monitoring',
-  penalty: 'Enforcement — penalty',
-  stop_work: 'Enforcement — stop-work order',
-  closure: 'Enforcement — closure',
-  restriction: 'Enforcement — restriction',
-  prosecution: 'Enforcement — prosecution',
+  penalty: 'Enforcement - penalty',
+  stop_work: 'Enforcement - stop-work order',
+  closure: 'Enforcement - closure',
+  restriction: 'Enforcement - restriction',
+  prosecution: 'Enforcement - prosecution',
   other: 'Other',
 }
 
@@ -860,7 +860,7 @@ export function scorePlaybook(p: PlaybookLike, ctx: PlaybookRankingContext): Pla
     reasons.push(`Matches the leading suspected source (${p.source_category.replace(/_/g, ' ')}).`)
   } else if (p.for_regional) {
     score += PLAYBOOK_RANK_WEIGHTS.sourceMatch * 0.5
-    reasons.push('Applies regardless of source — this incident is classified as regional pollution.')
+    reasons.push('Applies regardless of source - this incident is classified as regional pollution.')
   }
 
   // 2. evidence-level fit — prefer the playbook whose tier the evidence
@@ -898,7 +898,7 @@ export function scorePlaybook(p: PlaybookLike, ctx: PlaybookRankingContext): Pla
     reasons.push(
       ctx.assignableOfficerCount > 0
         ? 'A field officer currently covers this ward.'
-        : 'No field officer currently covers this ward — dispatch may be delayed.',
+        : 'No field officer currently covers this ward - dispatch may be delayed.',
     )
   }
 
@@ -936,7 +936,7 @@ export interface PlaybookUsageStats {
   partlyEffective: number
   ineffective: number
   inconclusive: number
-  /** Used, but not yet evaluated — still mid-lifecycle, not a fifth outcome. */
+  /** Used, but not yet evaluated - still mid-lifecycle, not a fifth outcome. */
   pending: number
 }
 
@@ -1007,14 +1007,14 @@ export type RecurrenceOutcomeKind = 'reopened' | 'new_incident' | null
  * reopened or new incident, dismissed with a public-safe reason").
  */
 export function citizenRecurrenceStatusLabel(reviewStatus: RecurrenceReviewStatus, outcomeKind: RecurrenceOutcomeKind): string {
-  if (outcomeKind === 'reopened') return 'Confirmed — the original incident has been reopened'
-  if (outcomeKind === 'new_incident') return 'Confirmed — linked to a new incident our team is tracking'
+  if (outcomeKind === 'reopened') return 'Confirmed - the original incident has been reopened'
+  if (outcomeKind === 'new_incident') return 'Confirmed - linked to a new incident our team is tracking'
   return RECURRENCE_REVIEW_STATUS_LABEL[reviewStatus]
 }
 
 // ---- reopen vs. new-linked-incident recommendation ----
 
-/** Stated thresholds — documented, arguable constants, not a model. */
+/** Stated thresholds - documented, arguable constants, not a model. */
 export const RECURRENCE_SOON_AFTER_CLOSURE_HOURS = 168 // 7 days: "returned soon after closure"
 export const RECURRENCE_SUBSTANTIAL_GAP_HOURS = 720 // 30 days: "a substantial time gap"
 export const RECURRENCE_SAME_LOCATION_RADIUS_M = 300 // materially the same site, not just the same ward
@@ -1079,12 +1079,12 @@ export function recommendRecurrenceDecision(ctx: RecurrenceDecisionContext): Rec
   if (hoursSinceClosure <= RECURRENCE_SOON_AFTER_CLOSURE_HOURS) {
     reopenScore++
     reasons.push(
-      `Reported ${Math.max(0, Math.round(hoursSinceClosure))}h after closure — within the ${RECURRENCE_SOON_AFTER_CLOSURE_HOURS}h "soon after closure" window.`,
+      `Reported ${Math.max(0, Math.round(hoursSinceClosure))}h after closure - within the ${RECURRENCE_SOON_AFTER_CLOSURE_HOURS}h "soon after closure" window.`,
     )
   }
   if (hoursSinceClosure >= RECURRENCE_SUBSTANTIAL_GAP_HOURS) {
     newIncidentScore++
-    reasons.push(`Reported ${Math.round(hoursSinceClosure / 24)} days after closure — a substantial time gap.`)
+    reasons.push(`Reported ${Math.round(hoursSinceClosure / 24)} days after closure - a substantial time gap.`)
   }
   if (wasTemporary) {
     reopenScore++
@@ -1092,15 +1092,15 @@ export function recommendRecurrenceDecision(ctx: RecurrenceDecisionContext): Rec
   }
   if (distance != null && distance <= RECURRENCE_SAME_LOCATION_RADIUS_M) {
     reopenScore++
-    reasons.push(`Reported ${Math.round(distance)}m from the original incident — materially the same location.`)
+    reasons.push(`Reported ${Math.round(distance)}m from the original incident - materially the same location.`)
   }
   if (distance != null && distance > RECURRENCE_SAME_LOCATION_RADIUS_M) {
     newIncidentScore++
-    reasons.push(`Reported ${Math.round(distance)}m from the original incident — the location has materially changed.`)
+    reasons.push(`Reported ${Math.round(distance)}m from the original incident - the location has materially changed.`)
   }
 
   if (reasons.length === 0) {
-    reasons.push('Not enough information to recommend confidently — review the evidence directly.')
+    reasons.push('Not enough information to recommend confidently - review the evidence directly.')
   }
 
   if (reopenScore > newIncidentScore) return { recommendation: 'reopen', reasons }
@@ -1168,7 +1168,7 @@ export function describeAnomalyDetectionRule(): string {
   return (
     'A monitoring station reaches "detected" when its concentration exceeds the city-configured ' +
     'threshold, that persists across at least two valid recent readings, and the excess above the ' +
-    "city's own background level is meaningful — never from one reading alone. " +
+    "city's own background level is meaningful - never from one reading alone. " +
     '"Predicted" means it has not crossed yet, but a simple trend projection (not a model) shows it ' +
     'is on track to cross within the configured prediction horizon.'
   )
@@ -1192,9 +1192,9 @@ export function describeTriggeredRule(rule: string): string {
  *  sensors wherever their data is shown, not just in the detection math. */
 export function sensorQualityCaveat(sensorType: string | null): string | null {
   if (sensorType === 'regulatory' || sensorType == null) return null
-  if (sensorType === 'indicative') return 'Indicative sensor — lower confidence than a regulatory monitor.'
-  if (sensorType === 'low_cost') return 'Low-cost sensor — lower confidence than a regulatory monitor.'
-  return 'Sensor type unknown — treated with reduced confidence.'
+  if (sensorType === 'indicative') return 'Indicative sensor - lower confidence than a regulatory monitor.'
+  if (sensorType === 'low_cost') return 'Low-cost sensor - lower confidence than a regulatory monitor.'
+  return 'Sensor type unknown - treated with reduced confidence.'
 }
 
 // ── probable-source attribution (Phase 7) ────────────────────────────────────
@@ -1263,7 +1263,7 @@ export const HYPOTHESIS_REVIEW_STATUS_LABEL: Record<HypothesisReviewStatus, stri
  * `SOURCE_CATEGORY_LABEL` takes.
  */
 export const CLASSIFICATION_LABEL: Record<IncidentClassification, string> = {
-  local: 'Local — actionable',
+  local: 'Local - actionable',
   mixed: 'Mixed',
   regional: 'Predominantly regional',
   uncertain: 'Unresolved',
@@ -1284,7 +1284,7 @@ export function isHumanConfirmedClassification(classificationSource: string | nu
 }
 
 /** The fixed disclaimer every source-attribution surface must show (plan §10). */
-export const PROBABLE_SOURCE_DISCLAIMER = 'Probable source — not a confirmed violation.'
+export const PROBABLE_SOURCE_DISCLAIMER = 'Probable source - not a confirmed violation.'
 
 /**
  * Whether the top-ranked hypothesis is ambiguous or low-confidence enough
@@ -1342,11 +1342,11 @@ export const FORECAST_DATA_QUALITY_LABEL: Record<ForecastDataQualityStatus, stri
 export type PredictionMethod = 'validated_forecast' | 'trend_persistence'
 export const PREDICTION_METHOD_LABEL: Record<PredictionMethod, string> = {
   validated_forecast: 'Validated forecast model',
-  trend_persistence: 'Raw-reading trend (fallback — no validated forecast was available)',
+  trend_persistence: 'Raw-reading trend (fallback - no validated forecast was available)',
 }
 
 /** The fixed, literal disclaimer plan §8 requires next to any forecast curve. */
-export const FORECAST_DISCLAIMER = 'Forecast — not a guaranteed outcome.'
+export const FORECAST_DISCLAIMER = 'Forecast - not a guaranteed outcome.'
 
 /**
  * Whether a specific horizon checkpoint falls within what the model was
@@ -1362,7 +1362,7 @@ export function isHorizonValidated(maxValidatedHorizonHours: number | null, hori
 export function forecastFallbackStatus(method: ForecastMethod, beatsPersistence: boolean): string {
   if (method === 'lightgbm' && beatsPersistence) return 'Using the validated machine-learning model.'
   if (method === 'diurnal_persistence' && !beatsPersistence) {
-    return "Falling back to the seasonal/hourly baseline — the model hasn't beaten simple persistence yet."
+    return "Falling back to the seasonal/hourly baseline - the model hasn't beaten simple persistence yet."
   }
   return 'Using the seasonal/hourly baseline.'
 }
@@ -1409,7 +1409,7 @@ export function canTransitionTaskDispatch(from: TaskDispatchStatus, to: TaskDisp
   return TASK_DISPATCH_TRANSITIONS[from].includes(to)
 }
 
-/** Statuses that require a non-empty reason — mirrors the DB's own check. */
+/** Statuses that require a non-empty reason - mirrors the DB's own check. */
 export const TASK_DISPATCH_REASON_REQUIRED: TaskDispatchStatus[] = ['rejected', 'rerouted', 'cancelled']
 
 export function taskDispatchRequiresReason(to: TaskDispatchStatus): boolean {
@@ -1466,7 +1466,7 @@ export const ROUTING_CONFIDENCE_LABEL: Record<RoutingConfidenceLevel, string> = 
   confirmed: 'Confirmed jurisdiction',
   probable: 'Probable jurisdiction',
   disputed: 'Disputed jurisdiction',
-  unresolved: 'Unresolved — no matching responsible unit found',
+  unresolved: 'Unresolved - no matching responsible unit found',
 }
 
 /** Whether a routing result may proceed toward dispatch on its own, or must

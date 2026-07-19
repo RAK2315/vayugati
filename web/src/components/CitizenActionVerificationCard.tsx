@@ -74,11 +74,11 @@ export default function CitizenActionVerificationCard({ view }: { view: CitizenI
           </div>
         </div>
       ) : answered ? (
-        <p className="text-sm text-green-700">✓ Thank you — recorded as {CITIZEN_ACTION_ANSWER_LABEL[answered].toLowerCase()}.</p>
+        <p className="text-sm text-green-700">✓ Thank you - recorded as {CITIZEN_ACTION_ANSWER_LABEL[answered].toLowerCase()}.</p>
       ) : (
         <>
           <p className="text-sm font-semibold text-ink-800">Has the action been completed?</p>
-          <p className="mt-0.5 text-xs text-ink-500">Answer only from where you are — this supports the result, it does not decide it.</p>
+          <p className="mt-0.5 text-xs text-ink-500">Answer only from where you are - this supports the result, it does not decide it.</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {ANSWERS.map((a) => (
               <button

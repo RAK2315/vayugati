@@ -20,7 +20,7 @@ export function LogoMark({ className = 'h-8 w-14' }: { className?: string }) {
   return <img src="/brand/logo.png" alt="Vayu Gati" aria-hidden className={`${className} object-contain`} />
 }
 
-/** Full wordmark — for login / brand surfaces only. */
+/** Full wordmark - for login / brand surfaces only. */
 export function LogoWordmark({ className = 'h-16 w-auto' }: { className?: string }) {
   return <img src="/brand/logo.png" alt="Vayu Gati" className={`${className} object-contain`} />
 }
@@ -57,7 +57,7 @@ export function railItemsForRole(role: string | undefined, homePath: string): Ra
       to: isCommand ? '/incidents' : undefined,
       comingSoon: isCommand ? undefined : 'The incident queue is a command-centre surface',
     },
-    { key: 'map', label: 'Map', icon: '⚲', comingSoon: 'Standalone map view — embedded in Overview for now' },
+    { key: 'map', label: 'Map', icon: '⚲', comingSoon: 'Standalone map view - embedded in Overview for now' },
     {
       key: 'tasks',
       label: 'Tasks',
@@ -141,7 +141,7 @@ function TopBar({ subtitle }: { subtitle?: string }) {
         {subtitle && <span className="hidden truncate text-xs font-medium text-slate-400 sm:inline">{subtitle}</span>}
       </div>
 
-      {/* global search — visual placeholder, not wired yet */}
+      {/* global search - visual placeholder, not wired yet */}
       <div className="mx-auto hidden max-w-md flex-1 sm:block">
         <input
           type="search"
@@ -155,7 +155,7 @@ function TopBar({ subtitle }: { subtitle?: string }) {
       <div className="ml-auto flex items-center gap-1.5 sm:ml-0">
         <button
           type="button"
-          title="Alerts — none yet"
+          title="Alerts - none yet"
           className="focus-ring relative rounded-lg p-2 text-sm text-slate-500 transition hover:bg-slate-100"
         >
           <span aria-hidden>🔔</span>
@@ -176,7 +176,7 @@ function TopBar({ subtitle }: { subtitle?: string }) {
             <div className="z-dropdown absolute right-0 top-full mt-1 w-56 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600 shadow-card-lg">
               <p className="font-semibold text-slate-800">Vayu Gati</p>
               <p className="mt-1">
-                Pan-India air incident-response platform. Delhi is the first City Pack — see{' '}
+                Pan-India air incident-response platform. Delhi is the first City Pack - see{' '}
                 <code>docs/IMPLEMENTATION_STATUS.md</code> for what&apos;s live today.
               </p>
               <p className="mt-2 border-t border-slate-100 pt-2 text-[10px] text-slate-400">
@@ -259,7 +259,7 @@ export default function AppShell({
         <TopBar subtitle={subtitle} />
         {!IS_PRODUCTION && (
           <div className="border-b border-amber-300 bg-amber-50 px-3 py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-amber-800">
-            {BUILD_INFO.environment} — not production
+            {BUILD_INFO.environment} - not production
           </div>
         )}
         <OfflineBanner />

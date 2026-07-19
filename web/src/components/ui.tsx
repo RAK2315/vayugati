@@ -208,7 +208,7 @@ export function OfflineBanner() {
       className="flex items-center justify-center gap-2 bg-status-warning/15 px-4 py-1.5 text-xs font-semibold text-status-warning"
     >
       <span className="h-1.5 w-1.5 rounded-full bg-status-warning" aria-hidden />
-      You&apos;re offline — showing the last data loaded on this device.
+      You&apos;re offline - showing the last data loaded on this device.
     </div>
   )
 }

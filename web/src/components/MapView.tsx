@@ -76,12 +76,12 @@ export default function MapView({ markers = [], center, zoom = 9 }: Props) {
           display:flex;align-items:center;justify-content:center;
           font-size:9px;font-weight:700;color:#fff;cursor:pointer;
         `
-        el.textContent = m.aqi != null ? String(m.aqi) : '—'
+        el.textContent = m.aqi != null ? String(m.aqi) : '-'
 
         const popup = new maplibregl.Popup({ offset: 16, closeButton: false })
           .setHTML(
             `<div style="font-size:13px;font-weight:600">${m.name}</div>` +
-            `<div style="font-size:12px;color:#555">AQI ${m.aqi ?? '—'}</div>`,
+            `<div style="font-size:12px;color:#555">AQI ${m.aqi ?? '-'}</div>`,
           )
 
         const marker = new maplibregl.Marker({ element: el })

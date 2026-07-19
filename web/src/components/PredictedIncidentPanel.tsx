@@ -44,7 +44,7 @@ import { Label } from './ui'
  */
 
 function fmt(n: number | null, digits = 1): string {
-  return n == null ? '—' : n.toFixed(digits)
+  return n == null ? '-' : n.toFixed(digits)
 }
 
 /** Compact inline-SVG forecast curve with an uncertainty band — no chart
@@ -176,7 +176,7 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
         </div>
         <div>
           <dt className="text-ink-400">Pollutant</dt>
-          <dd className="font-semibold text-ink-700">{pollutant ? POLLUTANT_LABEL[pollutant] : '—'}</dd>
+          <dd className="font-semibold text-ink-700">{pollutant ? POLLUTANT_LABEL[pollutant] : '-'}</dd>
         </div>
         <div>
           <dt className="text-ink-400">Current concentration</dt>
@@ -188,22 +188,22 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
         </div>
         <div>
           <dt className="text-ink-400">Rate of increase</dt>
-          <dd className="font-semibold text-ink-700">{latest?.rate_of_increase != null ? `${fmt(latest.rate_of_increase)}/h` : '—'}</dd>
+          <dd className="font-semibold text-ink-700">{latest?.rate_of_increase != null ? `${fmt(latest.rate_of_increase)}/h` : '-'}</dd>
         </div>
         <div>
           <dt className="text-ink-400">Expected threshold crossing</dt>
           <dd className="font-semibold text-ink-700">
-            {latest?.projected_crossing_at ? new Date(latest.projected_crossing_at).toLocaleString() : latest?.detection_stage === 'detected' ? 'Already crossed' : '—'}
+            {latest?.projected_crossing_at ? new Date(latest.projected_crossing_at).toLocaleString() : latest?.detection_stage === 'detected' ? 'Already crossed' : '-'}
           </dd>
         </div>
         <div>
           <dt className="text-ink-400">Data confidence</dt>
-          <dd className="font-semibold text-ink-700">{latest?.confidence != null ? `${Math.round(latest.confidence * 100)}%` : '—'}</dd>
+          <dd className="font-semibold text-ink-700">{latest?.confidence != null ? `${Math.round(latest.confidence * 100)}%` : '-'}</dd>
         </div>
         <div>
           <dt className="text-ink-400">Sensor</dt>
           <dd className="font-semibold text-ink-700">
-            {latest?.sensor_quality ?? '—'}
+            {latest?.sensor_quality ?? '-'}
             {sensorQualityCaveat(latest?.sensor_quality ?? null) && (
               <span className="ml-1 font-normal text-ink-400">({sensorQualityCaveat(latest?.sensor_quality ?? null)})</span>
             )}
@@ -238,7 +238,7 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
       {run && (
         <div className="mt-3 rounded-lg border border-ink-900/10 bg-white p-2.5">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[11px] font-semibold text-ink-700">Forecast — {pollutant ? POLLUTANT_LABEL[pollutant] : ''}</p>
+            <p className="text-[11px] font-semibold text-ink-700">Forecast - {pollutant ? POLLUTANT_LABEL[pollutant] : ''}</p>
             <span className="rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-ink-500">{FORECAST_DISCLAIMER}</span>
           </div>
 

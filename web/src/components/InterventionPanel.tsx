@@ -99,7 +99,7 @@ function Section({ title, count, children }: { title: string; count?: number; ch
 
 const EVIDENCE_BASIS_LABEL: Record<string, string> = {
   literature: 'Literature-based estimate',
-  expert_estimate: 'Expert estimate — not yet locally validated',
+  expert_estimate: 'Expert estimate - not yet locally validated',
   vayu_gati_observation: "Based on this city's own observed results",
 }
 
@@ -256,7 +256,7 @@ function PlaybookPickerDialog({
           <>
             <h2 className="text-sm font-semibold text-ink-900">Choose an intervention</h2>
             <p className="mt-0.5 text-xs text-ink-400">
-              Ranked by source match, evidence level, urgency, cost and deployment time — a stated rule, not a model.
+              Ranked by source match, evidence level, urgency, cost and deployment time - a stated rule, not a model.
             </p>
 
             {playbooks.loading || officers.loading ? (
@@ -317,7 +317,7 @@ function PlaybookPickerDialog({
               <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">Expected effect</p>
               <p className="mt-0.5 text-xs text-ink-700">{selected.expected_effect ?? 'Not documented.'}</p>
               <p className="mt-1 text-[11px] font-semibold text-ink-500">
-                {EVIDENCE_BASIS_LABEL[selected.evidence_basis ?? ''] ?? 'Basis not recorded'} — not a guarantee.
+                {EVIDENCE_BASIS_LABEL[selected.evidence_basis ?? ''] ?? 'Basis not recorded'} - not a guarantee.
               </p>
               {selected.known_limitations && (
                 <p className="mt-1 text-[11px] text-ink-500">Known limitations: {selected.known_limitations}</p>
@@ -331,7 +331,7 @@ function PlaybookPickerDialog({
             )}
 
             <label className="mt-3 block text-xs font-semibold text-ink-700">
-              Operational notes <span className="font-normal text-ink-400">(the only thing you can edit here — the playbook itself stays unchanged)</span>
+              Operational notes <span className="font-normal text-ink-400">(the only thing you can edit here - the playbook itself stays unchanged)</span>
             </label>
             <textarea
               rows={2}
@@ -377,7 +377,7 @@ function PlaybookPickerDialog({
                 <label className="mt-3 block text-xs font-semibold text-ink-700">Assign to (optional now)</label>
                 {officerList.length === 0 ? (
                   <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-ink-600">
-                    No field officer covers this ward yet — you can save this as drafted and assign later.
+                    No field officer covers this ward yet - you can save this as drafted and assign later.
                   </p>
                 ) : (
                   <select
@@ -488,10 +488,10 @@ function CreateInterventionDialog({
           className="focus-ring mt-1 w-full rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-sm"
         >
           <option value="inspect">Inspection</option>
-          <option value="sprinkle">Preventive — water sprinkling</option>
-          <option value="notice">Preventive — notice</option>
-          <option value="penalty">Enforcement — penalty</option>
-          <option value="stop_work">Enforcement — stop-work order</option>
+          <option value="sprinkle">Preventive - water sprinkling</option>
+          <option value="notice">Preventive - notice</option>
+          <option value="penalty">Enforcement - penalty</option>
+          <option value="stop_work">Enforcement - stop-work order</option>
         </select>
         {needsApproval && (
           <p className="mt-1 text-[11px] text-status-warning">
@@ -517,7 +517,7 @@ function CreateInterventionDialog({
 
         <label className="mt-3 block text-xs font-semibold text-ink-700">Why no playbook was suitable</label>
         <p className="mt-0.5 text-[11px] text-ink-400">
-          This is a custom intervention, not a structured playbook. Required — recorded on the audit trail.
+          This is a custom intervention, not a structured playbook. Required - recorded on the audit trail.
         </p>
         <textarea
           rows={2}
@@ -557,7 +557,7 @@ function CreateInterventionDialog({
               <p className="mt-1 text-xs text-ink-400">Loading officers…</p>
             ) : officerList.length === 0 ? (
               <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-ink-600">
-                No field officer covers this ward yet — you can save this as drafted and assign later.
+                No field officer covers this ward yet - you can save this as drafted and assign later.
               </p>
             ) : (
               <select
@@ -721,7 +721,7 @@ function RecordImpactDialog({
           className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-xs"
         />
 
-        {/* Preview only — the database computes the real outcome from the same
+        {/* Preview only - the database computes the real outcome from the same
             rule. Shown so the operator isn't surprised, never as the source of
             truth (see recordImpactEvaluation's docstring). */}
         <div className="mt-3 rounded-lg bg-ink-50 px-3 py-2">
@@ -863,11 +863,11 @@ function InterventionCard({
       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
         <div>
           <dt className="text-ink-400">Responsible authority</dt>
-          <dd className="font-semibold text-ink-700">{action.responsible_agency ?? '—'}</dd>
+          <dd className="font-semibold text-ink-700">{action.responsible_agency ?? '-'}</dd>
         </div>
         <div>
           <dt className="text-ink-400">Deadline</dt>
-          <dd className="font-semibold text-ink-700">{action.deadline ? new Date(action.deadline).toLocaleDateString() : '—'}</dd>
+          <dd className="font-semibold text-ink-700">{action.deadline ? new Date(action.deadline).toLocaleDateString() : '-'}</dd>
         </div>
         <div>
           <dt className="text-ink-400">Assignee</dt>
@@ -876,7 +876,7 @@ function InterventionCard({
         <div>
           <dt className="text-ink-400">Expected verification</dt>
           <dd className="font-semibold text-ink-700">
-            {action.expected_verification_hours ? `within ${action.expected_verification_hours}h` : '—'}
+            {action.expected_verification_hours ? `within ${action.expected_verification_hours}h` : '-'}
           </dd>
         </div>
       </dl>
@@ -1061,7 +1061,7 @@ export default function InterventionPanel({ detail, onRefresh }: { detail: Incid
       <Section title="Impact result" count={impactEvaluations.length}>
         {impactEvaluations.length === 0 ? (
           <EmptyState icon="📊">
-            No impact evaluation recorded yet — completing an action does not by itself mean pollution was reduced.
+            No impact evaluation recorded yet - completing an action does not by itself mean pollution was reduced.
           </EmptyState>
         ) : (
           <ul className="space-y-2">
@@ -1076,20 +1076,20 @@ export default function InterventionPanel({ detail, onRefresh }: { detail: Incid
                 <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] sm:grid-cols-4">
                   <div>
                     <dt className="text-ink-400">Before</dt>
-                    <dd className="font-semibold text-ink-700">{e.before_value ?? '—'}</dd>
+                    <dd className="font-semibold text-ink-700">{e.before_value ?? '-'}</dd>
                   </div>
                   <div>
                     <dt className="text-ink-400">After</dt>
-                    <dd className="font-semibold text-ink-700">{e.after_value ?? '—'}</dd>
+                    <dd className="font-semibold text-ink-700">{e.after_value ?? '-'}</dd>
                   </div>
                   <div>
                     <dt className="text-ink-400">Change</dt>
-                    <dd className="font-semibold text-ink-700">{e.pct_change != null ? `${e.pct_change.toFixed(0)}%` : '—'}</dd>
+                    <dd className="font-semibold text-ink-700">{e.pct_change != null ? `${e.pct_change.toFixed(0)}%` : '-'}</dd>
                   </div>
                   <div>
                     <dt className="text-ink-400">Data completeness</dt>
                     <dd className="font-semibold text-ink-700">
-                      {e.data_completeness != null ? `${Math.round(e.data_completeness * 100)}%` : '—'}
+                      {e.data_completeness != null ? `${Math.round(e.data_completeness * 100)}%` : '-'}
                     </dd>
                   </div>
                 </dl>

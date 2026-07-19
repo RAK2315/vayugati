@@ -608,7 +608,7 @@ describe('scorePlaybook', () => {
     expect(withoutInfo.score).toBeGreaterThanOrEqual(knownUnavailable.score)
   })
 
-  it('never scores affectedPopulation — the parameter is accepted but inert', () => {
+  it('never scores affectedPopulation - the parameter is accepted but inert', () => {
     const withPop = scorePlaybook(playbook(), rankCtx({ affectedPopulation: 50_000 }))
     const withoutPop = scorePlaybook(playbook(), rankCtx({ affectedPopulation: undefined }))
     expect(withPop.score).toBe(withoutPop.score)
@@ -939,7 +939,7 @@ describe('FORECAST_HORIZONS_HOURS / FORECAST_METHOD_LABEL / FORECAST_DATA_QUALIT
   })
 
   it('states the fixed forecast disclaimer literally', () => {
-    expect(FORECAST_DISCLAIMER).toBe('Forecast — not a guaranteed outcome.')
+    expect(FORECAST_DISCLAIMER).toBe('Forecast - not a guaranteed outcome.')
   })
 })
 

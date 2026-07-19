@@ -204,7 +204,7 @@ export default function SourceAttributionPanel({ detail, onRefresh }: { detail: 
           <dt className="text-ink-400">Probable responsible authority</dt>
           <dd className="font-semibold text-ink-700">
             {incident.classification === 'regional' ? (
-              <span className="font-normal text-ink-400">Not applicable — regional</span>
+              <span className="font-normal text-ink-400">Not applicable - regional</span>
             ) : responsibleAuthority?.regulating_authority ? (
               <>
                 {responsibleAuthority.regulating_authority}
@@ -222,7 +222,7 @@ export default function SourceAttributionPanel({ detail, onRefresh }: { detail: 
         <div>
           <dt className="text-ink-400">Last calculated</dt>
           <dd className="font-semibold text-ink-700">
-            {lastCalculated ? new Date(lastCalculated).toLocaleString() : '—'}
+            {lastCalculated ? new Date(lastCalculated).toLocaleString() : '-'}
           </dd>
         </div>
       </dl>
@@ -245,11 +245,11 @@ export default function SourceAttributionPanel({ detail, onRefresh }: { detail: 
           <span className="font-semibold">Recommended next evidence:</span>{' '}
           {recommendedMission ? (
             <>
-              {recommendedMission.mission_type.replace(/_/g, ' ')} — {recommendedMission.rationale?.replace('Automated attribution: ', '')}. Use
+              {recommendedMission.mission_type.replace(/_/g, ' ')} - {recommendedMission.rationale?.replace('Automated attribution: ', '')}. Use
               "Request evidence" above to dispatch it.
             </>
           ) : (
-            'The leading hypothesis is ambiguous or below the confidence threshold, but no recommendation has been generated yet — recalculate to generate one.'
+            'The leading hypothesis is ambiguous or below the confidence threshold, but no recommendation has been generated yet - recalculate to generate one.'
           )}
         </div>
       )}

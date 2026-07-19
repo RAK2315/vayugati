@@ -168,7 +168,7 @@ function ReportCard({
             <li key={i}>{r}</li>
           ))}
         </ul>
-        <p className="mt-1 text-[10px] italic text-brand-700">A recommendation only — command makes the final call.</p>
+        <p className="mt-1 text-[10px] italic text-brand-700">A recommendation only - command makes the final call.</p>
       </div>
 
       {report.public_response && (
@@ -228,7 +228,7 @@ export default function RecurrencePanel({ detail, onRefresh }: { detail: Inciden
         </div>
         <div>
           <dt className="text-ink-400">Time since closure</dt>
-          <dd className="font-semibold text-ink-700">{hoursSinceClosure != null ? fmtAge(hoursSinceClosure) : '—'}</dd>
+          <dd className="font-semibold text-ink-700">{hoursSinceClosure != null ? fmtAge(hoursSinceClosure) : '-'}</dd>
         </div>
         <div>
           <dt className="text-ink-400">Previous intervention</dt>

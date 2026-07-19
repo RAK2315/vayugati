@@ -82,7 +82,7 @@ function SystemHealthSection() {
     <Card>
       <CardHeader
         title="System health"
-        subtitle="Last run of every scheduled job — reads the same rollup the ingest service's /health endpoint uses"
+        subtitle="Last run of every scheduled job - reads the same rollup the ingest service's /health endpoint uses"
         right={
           <button
             type="button"
@@ -101,7 +101,7 @@ function SystemHealthSection() {
       ) : state.error ? (
         <ErrorState message={state.error} onRetry={() => state.refresh()} />
       ) : rows.length === 0 ? (
-        <EmptyState icon="🩺">No job runs recorded yet — jobs record themselves the first time they run.</EmptyState>
+        <EmptyState icon="🩺">No job runs recorded yet - jobs record themselves the first time they run.</EmptyState>
       ) : (
         <>
           {/* Mobile: compact cards, not a shrunk table */}
@@ -147,7 +147,7 @@ function SystemHealthSection() {
                       <span className="ml-1.5 text-slate-400">{r.last_status}</span>
                     </td>
                     <td className="px-2 py-2 text-slate-500">
-                      {r.last_completed_at ? new Date(r.last_completed_at).toLocaleString() : '—'}
+                      {r.last_completed_at ? new Date(r.last_completed_at).toLocaleString() : '-'}
                     </td>
                     <td className="max-w-xs truncate px-2 py-2 text-status-critical" title={r.last_error_message ?? ''}>
                       {r.last_error_message ?? ''}
@@ -179,7 +179,7 @@ function FeatureFlagsSection({ city, onChanged }: { city: CityConfigRow; onChang
 
   return (
     <Card>
-      <CardHeader title="Feature flags" subtitle={`${city.name} — pause a risky pilot feature without a redeploy`} />
+      <CardHeader title="Feature flags" subtitle={`${city.name} - pause a risky pilot feature without a redeploy`} />
       <ul className="divide-y divide-slate-100">
         {KNOWN_FEATURE_FLAGS.map((flag) => (
           <li key={flag} className="flex items-center justify-between px-4 py-2.5">
@@ -220,7 +220,7 @@ function ActivationList<T extends { id: number; is_active: boolean | null }>({
     <Card>
       <CardHeader title={title} subtitle={subtitle} />
       {items.length === 0 ? (
-        <EmptyState icon="—">Nothing configured yet for this city.</EmptyState>
+        <EmptyState icon="-">Nothing configured yet for this city.</EmptyState>
       ) : (
         <ul className="divide-y divide-slate-100">
           {items.map((item) => (
@@ -252,7 +252,7 @@ function PilotAdminSections({ city }: { city: CityConfigRow }) {
     <div className="grid gap-3 lg:grid-cols-2">
       <ActivationList
         title="Stations"
-        subtitle="Deactivate a faulty/offline station — anomaly detection skips it immediately"
+        subtitle="Deactivate a faulty/offline station - anomaly detection skips it immediately"
         items={stations.data ?? []}
         label={(s) => s.name}
         onToggle={async (s) => {

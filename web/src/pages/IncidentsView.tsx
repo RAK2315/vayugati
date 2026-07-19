@@ -305,7 +305,7 @@ function EvidenceMissionDialog({
           // ward), not an empty dropdown to shrug at.
           <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-slate-600">
             No field officer is assigned to this ward, so this mission cannot be dispatched. Assign an officer to the
-            ward first (roles are set in SQL today — see README).
+            ward first (roles are set in SQL today - see README).
           </p>
         ) : (
           <select
@@ -324,7 +324,7 @@ function EvidenceMissionDialog({
 
         {isCitizenMission && (
           <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
-            The citizen is only shown this if our safety rule allows it — we never ask the public to approach fires or
+            The citizen is only shown this if our safety rule allows it - we never ask the public to approach fires or
             industrial sites, or to go outside when the air is severe.
           </p>
         )}
@@ -366,7 +366,7 @@ function EvidenceMissionDialog({
           <button
             type="button"
             disabled={busy || !rationale.trim() || !assignee}
-            title={!assignee ? 'Choose who this mission goes to — an unassigned mission reaches nobody' : undefined}
+            title={!assignee ? 'Choose who this mission goes to - an unassigned mission reaches nobody' : undefined}
             onClick={create}
             className="focus-ring rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-700 disabled:opacity-50"
           >
@@ -467,7 +467,7 @@ function DetailHeader({
         </div>
         <div>
           <dt className="text-slate-400">Pollutant</dt>
-          <dd className="font-semibold uppercase text-slate-800">{incident.primary_pollutant ?? '—'}</dd>
+          <dd className="font-semibold uppercase text-slate-800">{incident.primary_pollutant ?? '-'}</dd>
         </div>
         <div>
           <dt className="text-slate-400">Local excess</dt>
@@ -523,7 +523,7 @@ function DetailHeader({
         </div>
       </dl>
 
-      {/* Action toolbar — sticky at the bottom of the viewport on mobile
+      {/* Action toolbar - sticky at the bottom of the viewport on mobile
           (thumb reach), a normal inline row on desktop. Which buttons exist is
           decided by the evidence level, and a blocked action explains itself
           rather than being silently absent. */}
@@ -702,7 +702,7 @@ export default function IncidentsView() {
               quietly showing old rows as current. */}
           {list.error && !list.loading && (list.data?.length ?? 0) > 0 && (
             <p className="border-t border-slate-100 bg-status-warning/10 px-3 py-1.5 text-[11px] text-slate-600">
-              Showing the last data loaded — refresh failed.
+              Showing the last data loaded - refresh failed.
             </p>
           )}
         </div>

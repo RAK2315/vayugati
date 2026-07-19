@@ -15,7 +15,7 @@ import {
 } from '../lib/data'
 
 function timeAgo(ts: string | null): string {
-  if (!ts) return '—'
+  if (!ts) return '-'
   const h = Math.floor((Date.now() - new Date(ts).getTime()) / 3_600_000)
   return h < 1 ? '<1h' : `${h}h`
 }
@@ -27,7 +27,7 @@ function AqiPill({ aqi }: { aqi: number | null }) {
       className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold tabular-nums"
       style={{ backgroundColor: `${level.hex}1f`, color: level.hex }}
     >
-      {aqi ?? '—'}
+      {aqi ?? '-'}
     </span>
   )
 }
@@ -73,7 +73,7 @@ export default function CommandView() {
         {/* ── KPI summary row ── */}
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
           <Stat
-            value={metrics?.medianHours != null ? `${metrics.medianHours.toFixed(1)}h` : '—'}
+            value={metrics?.medianHours != null ? `${metrics.medianHours.toFixed(1)}h` : '-'}
             label="Median time to action"
             accent="text-accent-700"
           />
@@ -150,7 +150,7 @@ export default function CommandView() {
           </div>
         </Card>
 
-        {/* ── Hotspots: table on desktop, cards on mobile — intentionally distinct, not a shrunk table ── */}
+        {/* ── Hotspots: table on desktop, cards on mobile - intentionally distinct, not a shrunk table ── */}
         <Card>
           <CardHeader title="Hotspots" subtitle="Current reading and 48h forecast peak, worst first" />
           {loading ? (
@@ -210,9 +210,9 @@ export default function CommandView() {
                                 <AqiPill aqi={Math.round(fc.peakPred)} />
                                 {fc.peakExcess != null && <span className="text-xs text-slate-400">+{Math.round(fc.peakExcess)}</span>}
                               </span>
-                            ) : <span className="text-slate-300">—</span>}
+                            ) : <span className="text-slate-300">-</span>}
                           </td>
-                          <td className="px-4 py-2 capitalize text-slate-500">{ward.dominant_source?.replace(/_/g, ' ') ?? '—'}</td>
+                          <td className="px-4 py-2 capitalize text-slate-500">{ward.dominant_source?.replace(/_/g, ' ') ?? '-'}</td>
                           <td className="px-4 py-2 text-slate-400">{timeAgo(ward.ts)}</td>
                         </tr>
                       )

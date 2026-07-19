@@ -93,7 +93,7 @@ function DispatchRow({
     try {
       setPreview(await previewTaskRouting(actionId))
     } catch {
-      /* preview is advisory only — a failed load just leaves the button available */
+      /* preview is advisory only - a failed load just leaves the button available */
     }
   }
 
@@ -168,13 +168,13 @@ function DispatchRow({
         <div>
           <dt className="text-ink-400">Responsible agency</dt>
           <dd className="font-semibold text-ink-700">
-            {dispatch?.responsible_agency ?? preview?.responsible_agency ?? '—'}
+            {dispatch?.responsible_agency ?? preview?.responsible_agency ?? '-'}
           </dd>
         </div>
         <div>
           <dt className="text-ink-400">Officer / team</dt>
           <dd className="font-semibold text-ink-700">
-            {dispatch?.primary_team ?? preview?.primary_team ?? (dispatch?.primary_officer ? 'Assigned officer' : '—')}
+            {dispatch?.primary_team ?? preview?.primary_team ?? (dispatch?.primary_officer ? 'Assigned officer' : '-')}
           </dd>
         </div>
         <div>
@@ -184,12 +184,12 @@ function DispatchRow({
               ? slaCountdownLabel(
                   dispatch.sla_ack_due_at ?? dispatch.sla_accept_due_at ?? dispatch.sla_arrival_due_at ?? dispatch.sla_completion_due_at,
                 )
-              : '—'}
+              : '-'}
           </dd>
         </div>
         <div>
           <dt className="text-ink-400">Escalation level</dt>
-          <dd className="font-semibold text-ink-700">{dispatch ? dispatch.escalation_level : '—'}</dd>
+          <dd className="font-semibold text-ink-700">{dispatch ? dispatch.escalation_level : '-'}</dd>
         </div>
       </dl>
 
@@ -209,7 +209,7 @@ function DispatchRow({
       {!dispatch && preview?.routing_confidence === 'unresolved' && (
         <div className="mt-1.5 flex items-start gap-2 rounded-lg bg-status-critical/10 px-2.5 py-1.5">
           <UnavailableBadge label="Unresolved routing" />
-          <p className="text-[11px] text-ink-600">No matching responsible unit found — this will not dispatch automatically.</p>
+          <p className="text-[11px] text-ink-600">No matching responsible unit found - this will not dispatch automatically.</p>
         </div>
       )}
 
@@ -217,7 +217,7 @@ function DispatchRow({
         <ul className="mt-1.5 space-y-0.5 text-[11px] text-ink-500">
           {notifs.map((n) => (
             <li key={n.id}>
-              {NOTIFICATION_CHANNEL_LABEL[n.channel]} — {NOTIFICATION_STATUS_LABEL[n.status]}
+              {NOTIFICATION_CHANNEL_LABEL[n.channel]} - {NOTIFICATION_STATUS_LABEL[n.status]}
               {n.failure_reason ? ` (${n.failure_reason})` : ''}
             </li>
           ))}
