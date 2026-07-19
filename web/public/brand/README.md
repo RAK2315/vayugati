@@ -1,35 +1,37 @@
-# Vayu Gati brand assets — placeholder notice
+# Vayu Gati brand assets
 
-**No official Vayu Gati logo artwork exists in this repository.** The files in
-this folder are clearly-labelled placeholders built from the brand tokens
-(`#422B1C` dark brown, `#C4F1FF` sky blue, `#F6EFE4` warm cream) and a generic
-"flowing wave" motif described in the product plan. They are intentionally
-simple typographic/geometric marks — **not** an attempt to redraw the real
-Vayu Gati logo, because the real artwork (the "two flowing wave shapes" /
-curved wordmark referenced in `docs/vayu-gati-product-plan-v2.md` §19) has
-never been supplied to this repository.
+**Real logo artwork is now in this repository**, supplied by the project
+owner (Phase 11 UI redesign): `logo.png` — the "two flowing wave shapes" /
+curved wordmark referenced in `docs/vayu-gati-product-plan-v2.md` §19,
+dark-brown (`#422B1C`-ish) lettering.
 
-## What exists today (placeholder, generated)
+## `logo.png`
 
-- `icon-compact-placeholder.svg` — compact wave-motif mark, dark-brown-on-cream.
-  Used for the left icon rail and as the favicon source until real artwork
-  arrives.
-- `favicon.svg` — the same mark, sized for browser tabs.
+The single source of truth for every branding placement in the app — icon
+rail, top bar, login screen — per the explicit instruction to use the
+same image everywhere rather than commissioning separate icon/wordmark
+variants. Every component renders it through `LogoMark` / `LogoWordmark`
+in [`../src/components/AppShell.tsx`](../src/components/AppShell.tsx), so
+replacing this one file is still the only thing that needs to change if
+the artwork is ever updated.
 
-## Exact files needed to replace the placeholders
+**Provenance**: supplied as a flat PNG export with a solid sky-blue
+(`#C7EAF9`-ish) background. The background was made transparent with a
+tolerance-based flood-fill matching that flat colour (a mechanical
+background-strip, not a redraw or approximation of the artwork itself) so
+it sits cleanly on the app's white surfaces. Original export dimensions:
+2143×1467.
 
-When real brand artwork is available, add these exact filenames to this
-folder and nothing else needs to change — every component in `web/src`
-that renders a logo does so through `LogoMark` / `LogoWordmark` in
-[`../src/components/AppShell.tsx`](../src/components/AppShell.tsx), which
-should be pointed at these files instead of the inline placeholder SVG:
+## Still a placeholder
 
-| Filename | Purpose | Spec |
-|---|---|---|
-| `logo-wordmark-primary.svg` | Login screen, brand surfaces | Dark-brown ("#422B1C") full curved wordmark on cream/white |
-| `logo-wordmark-alt.svg` | Dark surfaces | Sky-blue ("#C4F1FF") mark on dark brown |
-| `logo-icon-compact.svg` | App icon rail, small nav contexts | The two flowing wave shapes only, no wordmark, transparent background |
-| `favicon.svg` / `favicon-32.png` / `favicon-192.png` | Browser tab / PWA icon | Square crop of the compact icon |
+- `favicon.svg` — not yet derived from the real logo (still the earlier
+  generated wave-motif placeholder). The real logo's wide 2-line wordmark
+  doesn't crop cleanly into a square favicon without further design work;
+  worth a follow-up pass if a proper favicon crop is wanted.
 
-Do not hand-redraw the curved wordmark from memory or approximation — replace
-the placeholder only once the real vector artwork is supplied.
+## If the artwork changes again
+
+Replace `logo.png` with the new export. If it has a solid-colour
+background that needs stripping, sample the exact background pixel and
+flood-fill it to transparent with a small tolerance (10-15) rather than
+hand-editing the artwork.

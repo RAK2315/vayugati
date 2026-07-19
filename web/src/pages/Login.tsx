@@ -48,7 +48,7 @@ export default function Login() {
 
       <div className="relative w-full max-w-sm animate-fade-in">
         <div className="mb-6 flex flex-col items-center text-center">
-          <LogoWordmark />
+          <LogoWordmark className="h-24 w-auto sm:h-28" />
           <p className="mt-2 text-sm text-ink-500">जानकारी से कार्यवाही तक</p>
           <p className="text-xs text-ink-400">from information to action</p>
         </div>

@@ -7,35 +7,22 @@ import MobileBottomNav from './MobileNav'
 import { OfflineBanner } from './ui'
 
 // ── Brand marks ──────────────────────────────────────────────────────────────
-// PLACEHOLDER marks built from the brand tokens (dark brown / sky blue / cream).
-// These are NOT the official Vayu Gati logo — no real artwork has been supplied
-// to this repository. See web/public/brand/README.md for the exact filenames
-// to drop in once real artwork exists; this component is the only place that
-// needs to change when that happens. Deliberately unchanged by the Phase 11 UI
-// redesign — the redesign restyles surrounding chrome, not the brand mark
-// itself ("do not distort the full wordmark").
-export function LogoMark({ className = 'h-7 w-7' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden fill="none">
-      <rect width="32" height="32" rx="8" fill="#422B1C" />
-      <path
-        d="M6 13h13a2.6 2.6 0 1 0-2.6-2.6M6 16.4h16.5a2.8 2.8 0 1 1-2.8 2.8M6 19.8h8"
-        stroke="#C4F1FF"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
+// The real Vayu Gati logo (web/public/brand/logo.png) — the same file used
+// in every branding placement (icon rail, top bar, login screen), per the
+// explicit "use everywhere the same image" instruction, rather than
+// commissioning separate icon/wordmark variants. Background made
+// transparent from the original flat-sky-blue export (a mechanical
+// background-strip, not a redraw) so it sits cleanly on the white shell.
+// The source artwork already contains the full "VAYU GATI" wordmark, so
+// LogoWordmark below renders the image alone — no separate text label
+// layered next to it, which would just duplicate what's already drawn.
+export function LogoMark({ className = 'h-8 w-14' }: { className?: string }) {
+  return <img src="/brand/logo.png" alt="Vayu Gati" aria-hidden className={`${className} object-contain`} />
 }
 
-/** Full wordmark — for login / brand surfaces only. Typographic placeholder. */
-export function LogoWordmark({ dark = false }: { dark?: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <LogoMark className="h-9 w-9" />
-      <span className={`text-xl font-bold tracking-tight ${dark ? 'text-sky-200' : 'text-ink-800'}`}>Vayu Gati</span>
-    </div>
-  )
+/** Full wordmark — for login / brand surfaces only. */
+export function LogoWordmark({ className = 'h-16 w-auto' }: { className?: string }) {
+  return <img src="/brand/logo.png" alt="Vayu Gati" className={`${className} object-contain`} />
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -105,7 +92,7 @@ function IconRail({ role, homePath }: { role: string | undefined; homePath: stri
       className="z-rail hidden w-16 flex-shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white py-3 sm:flex"
     >
       <div className="mb-2">
-        <LogoMark className="h-8 w-8" />
+        <LogoMark className="h-7 w-11" />
       </div>
       {items.map((item) => {
         const active = !!item.to && location.pathname === item.to
