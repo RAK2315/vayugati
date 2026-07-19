@@ -6,6 +6,7 @@ import CitizenView from './pages/CitizenView'
 import CommandView from './pages/CommandView'
 import FieldView from './pages/FieldView'
 import AnalyticsView from './pages/AnalyticsView'
+import CitizensView from './pages/CitizensView'
 import IncidentsView from './pages/IncidentsView'
 import Login from './pages/Login'
 import MapPage from './pages/MapPage'
@@ -112,6 +113,14 @@ export default function App() {
               element={
                 <RequireRole allow={['commander', 'admin']}>
                   <TasksView />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/citizens"
+              element={
+                <RequireRole allow={['commander', 'admin']}>
+                  <CitizensView />
                 </RequireRole>
               }
             />

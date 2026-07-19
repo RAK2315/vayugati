@@ -90,11 +90,12 @@ run_file "$ROOT/supabase/migrations/20260725000000_production_hardening.sql"
 run_file "$ROOT/supabase/migrations/20260726000000_pilot_validation_performance.sql"
 run_file "$ROOT/supabase/migrations/20260727000000_profile_role_immutability.sql"
 run_file "$ROOT/supabase/migrations/20260728000000_admin_audit_events.sql"
-echo "   all fourteen re-applied cleanly"
+run_file "$ROOT/supabase/migrations/20260729000000_citizen_activity_view.sql"
+echo "   all fifteen re-applied cleanly"
 
 echo "== tests"
 fails=0
-for t in "$HERE/10_report_to_incident.sql" "$HERE/20_evidence_and_privacy.sql" "$HERE/30_mission_rls.sql" "$HERE/40_intervention_and_impact.sql" "$HERE/50_intervention_playbooks.sql" "$HERE/60_recurrence_and_custom_hardening.sql" "$HERE/70_anomaly_detection.sql" "$HERE/80_source_attribution.sql" "$HERE/90_unified_forecasting.sql" "$HERE/100_authority_routing_and_dispatch.sql" "$HERE/110_production_hardening.sql" "$HERE/120_pilot_validation_scenarios.sql" "$HERE/130_end_to_end_scenarios.sql" "$HERE/140_profile_role_immutability.sql" "$HERE/150_admin_audit_events.sql"; do
+for t in "$HERE/10_report_to_incident.sql" "$HERE/20_evidence_and_privacy.sql" "$HERE/30_mission_rls.sql" "$HERE/40_intervention_and_impact.sql" "$HERE/50_intervention_playbooks.sql" "$HERE/60_recurrence_and_custom_hardening.sql" "$HERE/70_anomaly_detection.sql" "$HERE/80_source_attribution.sql" "$HERE/90_unified_forecasting.sql" "$HERE/100_authority_routing_and_dispatch.sql" "$HERE/110_production_hardening.sql" "$HERE/120_pilot_validation_scenarios.sql" "$HERE/130_end_to_end_scenarios.sql" "$HERE/140_profile_role_immutability.sql" "$HERE/150_admin_audit_events.sql" "$HERE/160_citizen_activity_view.sql"; do
   out="$(docker exec -i "$CONTAINER" psql -U postgres -d "$DB" -f - < "$t" 2>&1)"
   # Match any label shape (12a, 14b2, 18c, ...) by just keying on the words
   # PASS/FAIL themselves rather than guessing a numbering pattern.

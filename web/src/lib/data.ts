@@ -484,6 +484,28 @@ export function allocateTeams(
     .sort((a, b) => b.teams - a.teams)
 }
 
+// ── Citizens (commander-wide reporter activity) ───────────────────────────────
+
+export interface CitizenActivity {
+  reporter_id: string
+  full_name: string | null
+  report_count: number
+  first_report_at: string
+  last_report_at: string
+  ward_count: number
+}
+
+/** profiles_self_read doesn't let commander read another citizen's full_name
+ *  directly - this goes through list_citizen_report_activity(), a narrow
+ *  SECURITY DEFINER RPC (commander/admin only, checked server-side) that
+ *  aggregates reports+profiles in one query rather than fetching every
+ *  individual report client-side. full_name may be null - the caller must
+ *  show "Citizen <id prefix>", never invent a name. */
+export async function listCitizenActivity(): Promise<CitizenActivity[]> {
+  const { data } = await supabase.rpc('list_citizen_report_activity')
+  return (data ?? []) as CitizenActivity[]
+}
+
 // ── Analytics (commander-wide outcome/forecast rollups) ──────────────────────
 
 export interface ImpactOutcomeSummary {

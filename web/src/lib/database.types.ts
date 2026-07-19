@@ -2380,6 +2380,17 @@ export type Database = {
           ward_id: number
         }[]
       }
+      list_citizen_report_activity: {
+        Args: never
+        Returns: {
+          first_report_at: string
+          full_name: string
+          last_report_at: string
+          report_count: number
+          reporter_id: string
+          ward_count: number
+        }[]
+      }
       list_my_citizen_missions: {
         Args: never
         Returns: {

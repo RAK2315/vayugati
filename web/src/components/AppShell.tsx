@@ -64,7 +64,7 @@ export function railItemsForRole(role: string | undefined, homePath: string): Ra
       icon: '☑',
       to: isField ? '/missions' : isCommand ? '/tasks' : undefined,
     },
-    { key: 'citizens', label: 'Citizens', icon: '☺', comingSoon: 'Citizen operations view arrives in Phase 3/5' },
+    { key: 'citizens', label: 'Citizens', icon: '☺', to: isCommand ? '/citizens' : undefined },
     { key: 'sensors', label: 'Sensors', icon: '◈', to: isCommand ? '/sensors' : undefined },
     { key: 'analytics', label: 'Analytics', icon: '▤', to: isCommand ? '/analytics' : undefined },
     {
