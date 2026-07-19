@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // ── Card ─────────────────────────────────────────────────────────────────────
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -123,6 +123,51 @@ export function UnavailableBadge({ label = 'Unavailable' }: { label?: string }) 
       <span className="h-1.5 w-1.5 rounded-full bg-slate-400" aria-hidden />
       {label}
     </span>
+  )
+}
+
+// ── Modal ────────────────────────────────────────────────────────────────────
+// The first shared modal primitive in this codebase — prior dialogs (e.g. the
+// evidence dialog in IncidentsView.tsx) each rolled their own inline overlay.
+// Deliberately minimal: centered panel, Escape closes, first field autofocus.
+// Not a generic form-builder — callers still bring their own form markup.
+export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    const firstField = panelRef.current?.querySelector<HTMLElement>('input, select, textarea, button')
+    firstField?.focus()
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="z-modal fixed inset-0 flex items-center justify-center bg-slate-900/40 p-3" onClick={onClose}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-4 shadow-card-lg sm:p-5"
+      >
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="focus-ring rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            ✕
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
   )
 }
 

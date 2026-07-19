@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import PlaybookForm from '../components/admin/PlaybookForm'
+import RegistryEntryForm from '../components/admin/RegistryEntryForm'
+import SlaRuleForm from '../components/admin/SlaRuleForm'
 import AppShell from '../components/AppShell'
-import { Card, CardHeader, EmptyState, ErrorState, Label, Skeleton } from '../components/ui'
+import { Card, CardHeader, EmptyState, ErrorState, Label, Modal, Skeleton } from '../components/ui'
 import { useAuth } from '../lib/auth'
 import { BUILD_INFO } from '../lib/env'
 import {
@@ -19,6 +22,9 @@ import {
   setStationActive,
   type CityConfigRow,
   type FeatureFlagName,
+  type PlaybookRow,
+  type ResponsibilityRegistryRow,
+  type SlaRuleRow,
 } from '../lib/ops'
 import { useAsync } from '../lib/useAsync'
 
@@ -29,10 +35,13 @@ import { useAsync } from '../lib/useAsync'
  * shrunk table), and a denser two-column grid for the activation sections
  * on wide screens so the page doesn't read as one long, sparse column.
  *
- * Not a general database editor — deeper edits (new playbook fields,
- * registry contact channels, SLA hour values) are still direct SQL, same as
- * the existing "no in-app playbook editor yet" limitation this phase does
- * not attempt to close.
+ * Phase 12: registry/SLA-rule/playbook sections gained real create/edit
+ * forms (deliberately overriding the earlier "toggle-only, no in-app editor"
+ * decision for exactly these three tables). Stations stays toggle-only —
+ * it's RPC-gated (setStationActive), not a direct commander/admin write like
+ * the other three, so a form here would need a different write path
+ * entirely. Still not a generic schema-driven editor: three purpose-built
+ * typed forms (web/src/components/admin/*Form.tsx), not a table browser.
  */
 
 const FEATURE_FLAG_LABEL: Record<FeatureFlagName, string> = {
@@ -198,12 +207,17 @@ function ActivationList<T extends { id: number; is_active: boolean | null }>({
   items,
   label,
   onToggle,
+  onEdit,
+  onCreate,
 }: {
   title: string
   subtitle: string
   items: T[]
   label: (item: T) => string
   onToggle: (item: T) => Promise<void>
+  /** Omit to keep a section toggle-only (e.g. Stations, which is RPC-gated). */
+  onEdit?: (item: T) => void
+  onCreate?: () => void
 }) {
   const [busyId, setBusyId] = useState<number | null>(null)
 
@@ -218,7 +232,21 @@ function ActivationList<T extends { id: number; is_active: boolean | null }>({
 
   return (
     <Card>
-      <CardHeader title={title} subtitle={subtitle} />
+      <CardHeader
+        title={title}
+        subtitle={subtitle}
+        right={
+          onCreate && (
+            <button
+              type="button"
+              onClick={onCreate}
+              className="focus-ring rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              + Add new
+            </button>
+          )
+        }
+      />
       {items.length === 0 ? (
         <EmptyState icon="-">Nothing configured yet for this city.</EmptyState>
       ) : (
@@ -226,11 +254,18 @@ function ActivationList<T extends { id: number; is_active: boolean | null }>({
           {items.map((item) => (
             <li key={item.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
               <span className="min-w-0 truncate text-sm text-slate-700">{label(item)}</span>
-              <ToggleButton
-                on={!!item.is_active}
-                disabled={busyId === item.id}
-                onClick={() => handleToggle(item)}
-              />
+              <div className="flex flex-shrink-0 items-center gap-1.5">
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={() => onEdit(item)}
+                    className="focus-ring rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    Edit
+                  </button>
+                )}
+                <ToggleButton on={!!item.is_active} disabled={busyId === item.id} onClick={() => handleToggle(item)} />
+              </div>
             </li>
           ))}
         </ul>
@@ -239,58 +274,102 @@ function ActivationList<T extends { id: number; is_active: boolean | null }>({
   )
 }
 
+type EditTarget =
+  | { kind: 'registry'; row: ResponsibilityRegistryRow | null }
+  | { kind: 'sla'; row: SlaRuleRow | null }
+  | { kind: 'playbook'; row: PlaybookRow | null }
+
 function PilotAdminSections({ city }: { city: CityConfigRow }) {
   const { session } = useAuth()
   const stations = useAsync(() => fetchStations(city.id), [city.id])
   const registry = useAsync(() => fetchResponsibilityRegistryForAdmin(city.id), [city.id])
   const slaRules = useAsync(() => fetchSlaRulesForAdmin(city.id), [city.id])
   const playbooks = useAsync(() => fetchPlaybooksForAdmin(city.id), [city.id])
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null)
 
   if (!session) return null
 
+  const closeModal = () => setEditTarget(null)
+  const savedRegistry = () => {
+    registry.refresh()
+    closeModal()
+  }
+  const savedSla = () => {
+    slaRules.refresh()
+    closeModal()
+  }
+  const savedPlaybook = () => {
+    playbooks.refresh()
+    closeModal()
+  }
+
   return (
-    <div className="grid gap-3 lg:grid-cols-2">
-      <ActivationList
-        title="Stations"
-        subtitle="Deactivate a faulty/offline station - anomaly detection skips it immediately"
-        items={stations.data ?? []}
-        label={(s) => s.name}
-        onToggle={async (s) => {
-          await setStationActive(s.id, !s.is_active, session.user.id)
-          stations.refresh()
-        }}
-      />
-      <ActivationList
-        title="Responsibility registry"
-        subtitle="An inactive row is skipped by routing resolution entirely"
-        items={registry.data ?? []}
-        label={(r) => `${r.regulating_authority ?? 'Unnamed unit'}${r.division_zone ? ` · ${r.division_zone}` : ''}`}
-        onToggle={async (r) => {
-          await setRegistryActive(r.id, !r.is_active)
-          registry.refresh()
-        }}
-      />
-      <ActivationList
-        title="SLA rules"
-        subtitle="An inactive rule falls through to the next most-specific active rule"
-        items={slaRules.data ?? []}
-        label={(r) => r.slug ?? `Rule #${r.id}`}
-        onToggle={async (r) => {
-          await setSlaRuleActive(r.id, !r.is_active)
-          slaRules.refresh()
-        }}
-      />
-      <ActivationList
-        title="Playbooks"
-        subtitle="An inactive playbook no longer appears in the field-officer picker"
-        items={playbooks.data ?? []}
-        label={(p) => p.title}
-        onToggle={async (p) => {
-          await setPlaybookActive(p.id, !p.is_active)
-          playbooks.refresh()
-        }}
-      />
-    </div>
+    <>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <ActivationList
+          title="Stations"
+          subtitle="Deactivate a faulty/offline station - anomaly detection skips it immediately"
+          items={stations.data ?? []}
+          label={(s) => s.name}
+          onToggle={async (s) => {
+            await setStationActive(s.id, !s.is_active, session.user.id)
+            stations.refresh()
+          }}
+        />
+        <ActivationList
+          title="Responsibility registry"
+          subtitle="An inactive row is skipped by routing resolution entirely"
+          items={registry.data ?? []}
+          label={(r) => `${r.regulating_authority ?? 'Unnamed unit'}${r.division_zone ? ` · ${r.division_zone}` : ''}`}
+          onToggle={async (r) => {
+            await setRegistryActive(r.id, !r.is_active)
+            registry.refresh()
+          }}
+          onEdit={(r) => setEditTarget({ kind: 'registry', row: r })}
+          onCreate={() => setEditTarget({ kind: 'registry', row: null })}
+        />
+        <ActivationList
+          title="SLA rules"
+          subtitle="An inactive rule falls through to the next most-specific active rule"
+          items={slaRules.data ?? []}
+          label={(r) => r.slug ?? `Rule #${r.id}`}
+          onToggle={async (r) => {
+            await setSlaRuleActive(r.id, !r.is_active)
+            slaRules.refresh()
+          }}
+          onEdit={(r) => setEditTarget({ kind: 'sla', row: r })}
+          onCreate={() => setEditTarget({ kind: 'sla', row: null })}
+        />
+        <ActivationList
+          title="Playbooks"
+          subtitle="An inactive playbook no longer appears in the field-officer picker"
+          items={playbooks.data ?? []}
+          label={(p) => p.title}
+          onToggle={async (p) => {
+            await setPlaybookActive(p.id, !p.is_active)
+            playbooks.refresh()
+          }}
+          onEdit={(p) => setEditTarget({ kind: 'playbook', row: p })}
+          onCreate={() => setEditTarget({ kind: 'playbook', row: null })}
+        />
+      </div>
+
+      {editTarget?.kind === 'registry' && (
+        <Modal title={editTarget.row ? 'Edit registry entry' : 'New registry entry'} onClose={closeModal}>
+          <RegistryEntryForm cityId={city.id} existing={editTarget.row} onSaved={savedRegistry} onCancel={closeModal} />
+        </Modal>
+      )}
+      {editTarget?.kind === 'sla' && (
+        <Modal title={editTarget.row ? 'Edit SLA rule' : 'New SLA rule'} onClose={closeModal}>
+          <SlaRuleForm cityId={city.id} existing={editTarget.row} onSaved={savedSla} onCancel={closeModal} />
+        </Modal>
+      )}
+      {editTarget?.kind === 'playbook' && (
+        <Modal title={editTarget.row ? 'Edit playbook' : 'New playbook'} onClose={closeModal}>
+          <PlaybookForm cityId={city.id} existing={editTarget.row} onSaved={savedPlaybook} onCancel={closeModal} />
+        </Modal>
+      )}
+    </>
   )
 }
 

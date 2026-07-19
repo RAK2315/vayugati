@@ -1,15 +1,20 @@
 /**
- * Operations data layer (Phase 10): system health and the minimal pilot
- * admin surface — city feature flags, station/registry/SLA-rule/playbook
- * activation. Deliberately narrow (plan §18: "do not create a broad
- * generic admin panel") — this is pilot configuration, not a general
- * database editor. Sibling to incidents.ts/data.ts: this is the only place
- * that knows these table/column names.
+ * Operations data layer (Phase 10, extended in Phase 12): system health,
+ * city feature flags, station activation, and real create/edit forms for
+ * responsibility_registry / sla_rules / intervention_playbooks (Phase 12
+ * deliberately overrides the earlier "toggle-only, no in-app editor" scope
+ * decision for exactly these three tables — stations stay toggle-only,
+ * they're RPC-gated, not a direct-write table like these three). Still not
+ * a generic database editor: three purpose-built typed forms, not a
+ * schema-driven table editor. Sibling to incidents.ts/data.ts: this is the
+ * only place that knows these table/column names.
  */
 import type { Database } from './database.types'
+import type { ChecklistItem } from './incidentRules'
 import { supabase } from './supabase'
 
 type Row<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
+type Enum<T extends keyof Database['public']['Enums']> = Database['public']['Enums'][T]
 
 export type CityConfigRow = Row<'city_config'>
 export type StationRow = Row<'stations'>
@@ -213,5 +218,152 @@ export async function fetchPlaybooksForAdmin(cityId: number): Promise<PlaybookRo
 
 export async function setPlaybookActive(id: number, isActive: boolean): Promise<void> {
   const { error } = await supabase.from('intervention_playbooks').update({ is_active: isActive }).eq('id', id)
+  if (error) fail('Could not update the playbook', error)
+}
+
+// ── Real editors (Phase 12): registry / SLA rule / playbook create+edit ─────
+// Named field types, not Partial<Row> — a raw DB column (id/created_at/
+// updated_at/is_active) can never be submitted from a form by accident.
+// is_active stays managed by the toggle functions above; these only ever
+// write the substantive fields.
+
+export interface ContactChannel {
+  phone?: string
+  email?: string
+  [key: string]: string | undefined
+}
+
+export interface EscalationHierarchyEntry {
+  level: number
+  role: string
+  contact: string
+  [key: string]: string | number | undefined
+}
+
+export interface RegistryFormFields {
+  source_category: Enum<'source_category'> | null
+  ward_id: number | null
+  asset_description: string | null
+  owner_name: string | null
+  regulating_authority: string | null
+  division_zone: string | null
+  responsible_officer: string | null
+  escalation_contact: string | null
+  team_name: string | null
+  backup_agency: string | null
+  backup_team: string | null
+  backup_officer: string | null
+  zone_description: string | null
+  contact_channel: ContactChannel
+  supported_intervention_types: string[]
+  /** Free text (e.g. "Mon-Sat 09:00-18:00 IST") — matches the convention
+   *  already established in supabase/RESPONSIBILITY_REGISTRY_IMPORT_TEMPLATE.csv,
+   *  stored as a plain jsonb string scalar rather than a structured per-day shape
+   *  no consumer currently needs. */
+  working_hours: string | null
+  escalation_hierarchy: EscalationHierarchyEntry[]
+  mapping_confidence: string
+  mapping_source: string | null
+}
+
+export async function createRegistryEntry(
+  cityId: number,
+  fields: RegistryFormFields,
+): Promise<ResponsibilityRegistryRow> {
+  const { data, error } = await supabase
+    .from('responsibility_registry')
+    .insert({ city_id: cityId, ...fields })
+    .select()
+    .single()
+  if (error) fail('Could not create the registry entry', error)
+  return data
+}
+
+export async function updateRegistryEntry(id: number, fields: RegistryFormFields): Promise<void> {
+  const { error } = await supabase.from('responsibility_registry').update(fields).eq('id', id)
+  if (error) fail('Could not update the registry entry', error)
+}
+
+export interface SlaRuleFormFields {
+  slug: string | null
+  severity: string | null
+  source_category: Enum<'source_category'> | null
+  evidence_level: Enum<'source_confidence_level'> | null
+  action_type: string | null
+  agency: string | null
+  time_of_day: string | null
+  ack_hours: number
+  accept_hours: number
+  arrival_hours: number
+  completion_hours: number
+  verification_hours: number
+  priority: number
+}
+
+export async function createSlaRule(cityId: number, fields: SlaRuleFormFields): Promise<SlaRuleRow> {
+  const { data, error } = await supabase
+    .from('sla_rules')
+    .insert({ city_id: cityId, ...fields })
+    .select()
+    .single()
+  if (error) fail('Could not create the SLA rule', error)
+  return data
+}
+
+export async function updateSlaRule(id: number, fields: SlaRuleFormFields): Promise<void> {
+  const { error } = await supabase.from('sla_rules').update(fields).eq('id', id)
+  if (error) fail('Could not update the SLA rule', error)
+}
+
+export interface PlaybookFormFields {
+  title: string
+  /** null only valid when for_regional=true (DB check: not for_regional or source_category is null). */
+  source_category: Enum<'source_category'> | null
+  action_type: string
+  min_evidence_level: Enum<'source_confidence_level'>
+  approval_level: Enum<'approval_level'>
+  for_regional: boolean
+  checklist: ChecklistItem[]
+  required_team: string | null
+  required_equipment: string | null
+  estimated_minutes: number | null
+  estimated_cost_min: number | null
+  estimated_cost_max: number | null
+  expected_effect: string | null
+  expected_time_to_effect_hours: number | null
+  expected_duration_hours: number | null
+  verification_window_hours: number | null
+  known_limitations: string | null
+  required_proof: string | null
+  verification_method: string | null
+  evidence_basis: string | null
+  responsible_agency_type: string | null
+  instructions: string | null
+  recommended_pollutants: string[]
+  slug: string | null
+  /** Bumped by a human editing the template, never automatically — see the
+   *  migration comment on intervention_playbooks.version. */
+  version: number
+}
+
+// checklist is ChecklistItem[] (the shared field-app-consumed shape from
+// incidentRules.ts, not owned here) — a plain jsonb write, cast to satisfy
+// the generated Json type rather than adding an index signature to a type
+// other modules also rely on.
+export async function createPlaybook(cityId: number, fields: PlaybookFormFields): Promise<PlaybookRow> {
+  const { data, error } = await supabase
+    .from('intervention_playbooks')
+    .insert({ city_id: cityId, ...fields, checklist: fields.checklist as unknown as Database['public']['Tables']['intervention_playbooks']['Insert']['checklist'] })
+    .select()
+    .single()
+  if (error) fail('Could not create the playbook', error)
+  return data
+}
+
+export async function updatePlaybook(id: number, fields: PlaybookFormFields): Promise<void> {
+  const { error } = await supabase
+    .from('intervention_playbooks')
+    .update({ ...fields, checklist: fields.checklist as unknown as Database['public']['Tables']['intervention_playbooks']['Insert']['checklist'] })
+    .eq('id', id)
   if (error) fail('Could not update the playbook', error)
 }
