@@ -39,8 +39,18 @@ start_pg() {
   docker run -d --name "$CONTAINER" \
     -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB="$DB" \
     -p "${PORT}:5432" postgres:15 >/dev/null
+  # The official postgres image briefly starts up to run initdb, shuts
+  # itself down, then restarts for real — pg_isready can catch that
+  # transient window and falsely report ready right before the shutdown
+  # (observed for real in CI: "connection ... failed: FATAL: the database
+  # system is shutting down" immediately after this loop returned). A
+  # single successful ping is not proof; require a real query to succeed
+  # twice, a beat apart, before trusting it.
   for _ in $(seq 1 60); do
-    docker exec "$CONTAINER" pg_isready -U postgres -d "$DB" >/dev/null 2>&1 && return
+    if docker exec "$CONTAINER" psql -U postgres -d "$DB" -c 'select 1' >/dev/null 2>&1; then
+      sleep 1
+      docker exec "$CONTAINER" psql -U postgres -d "$DB" -c 'select 1' >/dev/null 2>&1 && return
+    fi
     sleep 1
   done
   echo "postgres did not become ready" >&2
