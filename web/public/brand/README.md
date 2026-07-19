@@ -22,12 +22,15 @@ background-strip, not a redraw or approximation of the artwork itself) so
 it sits cleanly on the app's white surfaces. Original export dimensions:
 2143×1467.
 
-## Still a placeholder
+## `favicon.png` / `favicon-192.png`
 
-- `favicon.svg` — not yet derived from the real logo (still the earlier
-  generated wave-motif placeholder). The real logo's wide 2-line wordmark
-  doesn't crop cleanly into a square favicon without further design work;
-  worth a follow-up pass if a proper favicon crop is wanted.
+Derived from `logo.png`: the full mark centered with padding on a square
+`#C4F1FF` (sky-200, the brand's own secondary colour) canvas — the same
+colour relationship the original artwork itself used, not an invented
+pairing. Generated, not hand-drawn: `logo.png` resized to fit an
+avail-area box and pasted onto the coloured square. `favicon.svg` (the
+old wave-motif placeholder) is no longer referenced by `index.html` but
+is left in this folder for now rather than deleted.
 
 ## If the artwork changes again
 
