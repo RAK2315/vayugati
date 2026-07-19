@@ -86,6 +86,7 @@ MIGRATIONS: list[MigrationCheck] = [
     # EXISTING profiles table, no new table/column/bucket. Verify manually:
     #   select tgname from pg_trigger where tgrelid = 'profiles'::regclass;
     # should include `enforce_profile_role_immutability_trg`.
+    MigrationCheck("20260728000000_admin_audit_events.sql", ("table", "admin_audit_events", None)),
 ]
 
 

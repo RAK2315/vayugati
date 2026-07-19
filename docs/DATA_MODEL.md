@@ -1575,3 +1575,48 @@ resulting sign-off.
 
 `drop index if exists readings_ts_idx;` — fully independent, no other
 object depends on it.
+
+## Phase 11 (continued): `20260728000000_admin_audit_events.sql` and `20260727000000_profile_role_immutability.sql`
+
+Two small, real fixes found while manually walking the freshly-deployed
+hosted Vercel frontend for the first time, not part of the original
+plan.
+
+### `profile_role_immutability`
+
+See [SECURITY.md](SECURITY.md)'s Phase 11 section for the full writeup
+of the vulnerability this closes (self-role-elevation). A `before insert
+or update` trigger on `profiles` blocks any self-scoped change to `role`
+or `ward_id` unless the caller is the service_role backend or an
+existing admin. No new table, no RLS policy change — the fix lives
+entirely in a trigger function.
+
+### `admin_audit_events`
+
+A new, insert-only table for administrative actions that happen outside
+any single incident's lifecycle — onboarding or deactivating a field
+officer, and any similar future account-management action.
+`incident_events` already exists for exactly this pattern but is scoped
+to one incident; creating a user account isn't about any incident, so it
+gets its own table rather than being force-fit or left unaudited.
+
+- **Columns**: `event_type` (checked against `field_officer_onboarded` /
+  `field_officer_deactivated` / `field_officer_onboarding_failed`),
+  `actor`, `target_email`, `target_user_id`, `city_id`, `ward_id`,
+  `details` (jsonb), `created_at`.
+- **RLS**: commander/admin can read; no insert/update/delete policy for
+  any authenticated role at all — only the service_role connection
+  writes here, matching `job_runs`' own "no authenticated write path"
+  discipline exactly.
+- **Written by**: `supabase/scripts/onboard_field_officer.py` (new,
+  Phase 11) — the only thing that creates a `field_officer` account,
+  using Supabase's real Admin Auth API, never a direct
+  `insert into auth.users`. See [PILOT_RUNBOOK.md](PILOT_RUNBOOK.md)'s
+  "Onboarding a real field officer" section for usage.
+
+### Rollback
+
+`drop table if exists admin_audit_events;` and reverting
+`enforce_profile_role_immutability`'s trigger definition (not
+recommended — this would restore the self-elevation vulnerability) are
+both independently possible; neither is depended on by any other object.

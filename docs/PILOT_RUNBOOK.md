@@ -165,6 +165,40 @@ list. The ones most likely to matter operationally in an early pilot:
 - No in-app playbook editor, no officer/team activation UI — both still
   direct SQL.
 
+## Onboarding a real field officer
+
+`supabase/scripts/onboard_field_officer.py` — creates one `field_officer`
+account via Supabase's real Admin Auth API (never a direct `insert into
+auth.users`), scoped to one real ward, with an immutable
+`admin_audit_events` row recording who/when/what. Never invents a name,
+email, city, or ward — all four are required arguments.
+
+```bash
+# validate everything without creating anything
+python3 supabase/scripts/onboard_field_officer.py \
+  --name "Real Name" --email real@example.com \
+  --city delhi --ward-name "Anand Vihar" --dry-run
+
+# create for real — sends a Supabase invite email, officer sets their own password
+python3 supabase/scripts/onboard_field_officer.py \
+  --name "Real Name" --email real@example.com \
+  --city delhi --ward-name "Anand Vihar"
+
+# list current field officers
+python3 supabase/scripts/onboard_field_officer.py --list-officers
+
+# soft-deactivate (role reset to citizen, ward cleared, auth account untouched)
+python3 supabase/scripts/onboard_field_officer.py --deactivate real@example.com
+```
+
+Refuses to run if the email already has an account. Rolls back (deletes
+the just-created auth user) if the linked `profiles` row fails to create,
+so a failed run never leaves an orphaned auth-only account. See the
+script's own docstring for the full behaviour, including the honest
+caveat that this platform has no native "force password change on first
+login" — using `--mode temp-password` instead of the default invite flow
+means you must personally tell the officer to change their password.
+
 ## Recommended next steps
 
 Not a new build phase — the concrete, closeable conditions in

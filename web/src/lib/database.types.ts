@@ -213,6 +213,57 @@ export type Database = {
           },
         ]
       }
+      admin_audit_events: {
+        Row: {
+          actor: string
+          city_id: number | null
+          created_at: string
+          details: Json
+          event_type: string
+          id: number
+          target_email: string | null
+          target_user_id: string | null
+          ward_id: number | null
+        }
+        Insert: {
+          actor: string
+          city_id?: number | null
+          created_at?: string
+          details?: Json
+          event_type: string
+          id?: number
+          target_email?: string | null
+          target_user_id?: string | null
+          ward_id?: number | null
+        }
+        Update: {
+          actor?: string
+          city_id?: number | null
+          created_at?: string
+          details?: Json
+          event_type?: string
+          id?: number
+          target_email?: string | null
+          target_user_id?: string | null
+          ward_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_events_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "city_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_audit_events_ward_id_fkey"
+            columns: ["ward_id"]
+            isOneToOne: false
+            referencedRelation: "wards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       anomaly_candidates: {
         Row: {
           baseline_value: number | null
