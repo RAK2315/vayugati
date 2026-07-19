@@ -19,7 +19,7 @@ earlier one - never a bare assertion that "it builds" or "tests pass."
 | Anomaly detection operational | **READY** | Real historical replay (930 real Delhi readings, Dec 2018) produced correct, non-duplicated, non-false-positive results - see [HISTORICAL_REPLAY_REPORT.md](HISTORICAL_REPLAY_REPORT.md). Plus 30+ existing unit/SQL tests. |
 | Forecasting operational | **CONDITIONALLY READY** | Real-data replay shows genuine skill at 2 of 4 tested wards, not uniformly - the per-ward `beats_persistence` gate is the correct, already-built safeguard for this. See [HISTORICAL_REPLAY_REPORT.md](HISTORICAL_REPLAY_REPORT.md) section 3. |
 | Source attribution operational | **READY** (mechanism), **NOT VALIDATED** (real-world accuracy) | 14 SQL scenarios (10 original + 4 new this phase: open_burning, industrial, mixed, unresolved-mapping) all pass; explicitly no real labelled ground-truth dataset exists to validate real-world accuracy against - stated honestly, not hidden. |
-| Authority routing operational | **CONDITIONALLY READY** | Mechanism fully tested (Scenarios A/B/E, 100_authority_routing_and_dispatch.sql). Real Delhi registry data is nearly empty (0 of 4 rows verified) - see [DELHI_DATA_GAP_REPORT.md](DELHI_DATA_GAP_REPORT.md). Routing will resolve `probable`, not `confirmed`, until real data is imported. |
+| Authority routing operational | **CONDITIONALLY READY** | Mechanism fully tested (Scenarios A/B/E, 100_authority_routing_and_dispatch.sql). All 4 registry rows now carry real, sourced official agency contacts (MCD, Delhi Transport Department, DPCC - each with a cited government source page), applied live to hosted this phase. Still 0 of 4 `verified` (city-wide, not ward-specific) - see [DELHI_DATA_GAP_REPORT.md](DELHI_DATA_GAP_REPORT.md). Routing will resolve `probable`, not `confirmed`, until ward-specific verified data exists, but every dispatch now reaches a real, callable agency contact rather than a placeholder. |
 | Dispatch lifecycle operational | **READY** | 15-state lifecycle, replay-safe (Phase 10 bug fixed and re-verified this phase in Scenario J), fully tested. |
 | Notifications operational or honestly mocked | **READY** (honestly mocked) | In-app is real; email uses a real SMTP adapter or an honest dev-mock; SMS/WhatsApp are interface-only with an honest "not configured" failure - never a fabricated delivery claim. |
 | SLA escalation operational | **READY** | Scenario F (this phase) plus `110_production_hardening.sql`'s dedicated escalation tests. |
@@ -345,9 +345,13 @@ system's own design or correctness.
    across every preserved table.**
 3. ~~Run the hosted smoke test successfully.~~ **DONE — 13/13 checks pass,
    after fixing two real bugs found in the smoke test script itself.**
-4. Import real, verified `responsibility_registry` data for at least the
-   pilot wards, using the validated import template. **Still open — needs
-   real Delhi agency/officer data, which cannot be fabricated.**
+4. **Partially done**: all 4 existing rows now carry real, sourced
+   official agency contacts (MCD, Delhi Transport Department, DPCC -
+   phone/email verified against each agency's own government contact
+   page, applied live to hosted). **Still open**: none are ward-specific
+   or `mapping_confidence = 'verified'` yet - that needs a real Delhi ops
+   lead to confirm the correct unit per ward, which cannot be sourced
+   from a web search.
 5. Create real field-officer accounts for at least the pilot wards.
    **Still open — zero exist today.**
 6. ~~Widen `requires_approval_types` so every routine dispatch (not just
