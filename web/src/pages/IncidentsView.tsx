@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import IncidentEvidencePanel from '../components/IncidentEvidencePanel'
 import { EmptyState, ErrorState, Skeleton, StaleBadge, StickyActionBar, TabPanel, Tabs, type TabItem } from '../components/ui'
@@ -585,6 +586,8 @@ export default function IncidentsView() {
   const [queue, setQueue] = useState<QueueKey>('active')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
+  const [searchParams] = useSearchParams()
+  const appliedDeepLinkRef = useRef(false)
 
   const list = useAsync(() => listIncidents({ limit: 200 }), [], { staleAfterMs: 120_000 })
 
@@ -621,6 +624,23 @@ export default function IncidentsView() {
         return new Date(a.detected_at).getTime() - new Date(b.detected_at).getTime()
       })
   }, [incidents, queue])
+
+  // Deep-link support (?incident=<id>) — e.g. a Tasks-page row linking
+  // straight into this incident's detail workspace instead of the bare
+  // queue. Applied once list.data is loaded, and only once per page load:
+  // switches to whichever queue actually contains the incident (it may not
+  // be in the default 'active' queue), then selects it.
+  useEffect(() => {
+    if (appliedDeepLinkRef.current || list.loading) return
+    const raw = searchParams.get('incident')
+    if (raw == null) return
+    const id = Number(raw)
+    const target = incidents.find((i) => i.id === id)
+    if (!target) return
+    appliedDeepLinkRef.current = true
+    setQueue(QUEUE_ORDER.find((q) => inQueue(target, q)) ?? 'active')
+    setSelectedId(id)
+  }, [searchParams, list.loading, incidents])
 
   const detailId = selectedId != null && filtered.some((i) => i.id === selectedId) ? selectedId : null
 

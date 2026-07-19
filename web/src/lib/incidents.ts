@@ -2323,6 +2323,43 @@ export async function listMyTaskDispatches(): Promise<TaskDispatchRow[]> {
   return data ?? []
 }
 
+export interface ActiveTaskDispatch extends TaskDispatchRow {
+  incident_summary: string | null
+  ward_name: string | null
+}
+
+const ACTIVE_DISPATCH_SELECT = '*, incidents(summary, wards(name))'
+
+function shapeActiveDispatch(
+  row: TaskDispatchRow & { incidents?: { summary: string | null; wards?: { name: string } | { name: string }[] | null } | null },
+): ActiveTaskDispatch {
+  const incident = row.incidents
+  const ward = incident?.wards
+  const { incidents: _incidents, ...rest } = row
+  return {
+    ...rest,
+    incident_summary: incident?.summary ?? null,
+    ward_name: Array.isArray(ward) ? (ward[0]?.name ?? null) : (ward?.name ?? null),
+  }
+}
+
+/** Every current, still-open dispatch city-wide — the commander's view across
+ *  every ward, distinct from listMyTaskDispatches (one officer's own queue,
+ *  no incident/ward join since that page never needed it). RLS already
+ *  returns every row unconditionally for commander/admin (task_dispatches_read),
+ *  so this needs no server-side ward filter. */
+export async function listActiveTaskDispatches(): Promise<ActiveTaskDispatch[]> {
+  const { data, error } = await supabase
+    .from('task_dispatches')
+    .select(ACTIVE_DISPATCH_SELECT)
+    .eq('is_current', true)
+    .not('status', 'in', '(completed,verification_pending,cancelled,rejected)')
+    .order('sla_ack_due_at', { ascending: true, nullsFirst: false })
+    .limit(300)
+  if (error) fail('Could not load active dispatches', error)
+  return (data ?? []).map((r) => shapeActiveDispatch(r as never))
+}
+
 /** Notifications queued/sent for one dispatch — the Operations panel's
  *  delivery-status detail (plan §10: "delivery status, acknowledgement status"). */
 export async function listNotificationsForDispatch(dispatchId: number): Promise<NotificationRow[]> {
