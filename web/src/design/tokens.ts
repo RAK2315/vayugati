@@ -50,6 +50,27 @@ export const brand = {
 } as const
 
 /**
+ * Accent ramp — Outlook/Fluent-style primary blue, introduced in the Phase 11
+ * commander UI redesign. The ONLY colour used for active nav states, focus
+ * rings, primary buttons and selected rows on the redesigned surfaces
+ * (AppShell, Incidents, Overview, Ops). Main surfaces are white/slate; `ink`/
+ * `sky`/`cream` above stay reserved for the logo mark and any not-yet-
+ * redesigned surface (Field/Citizen), never re-applied as a page background.
+ */
+export const accent = {
+  50: '#EFF6FC',
+  100: '#DEECF9',
+  200: '#C7E0F4',
+  300: '#71AFE5',
+  400: '#2B88D8',
+  500: '#0F6CBD',
+  600: '#0C5A9E',
+  700: '#0A4A82',
+  800: '#083861',
+  900: '#062843',
+} as const
+
+/**
  * Status colours. Reserved ONLY for severity/operational status — never for
  * decorative branding. Distinct from the India NAQI pollutant-severity scale
  * (see AqiBadge.tsx), which is a regulated public-communication scale and is

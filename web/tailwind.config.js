@@ -52,6 +52,24 @@ export default {
           900: '#16454F',
         },
         cream: '#F6EFE4',
+        // accent: Outlook/Fluent-style primary blue — the ONLY colour used for
+        // active nav states, focus rings, primary buttons, and selected rows
+        // across the redesigned commander surfaces (Phase 11 UI pass). Main
+        // surfaces stay white/slate; ink/sky/cream stay reserved for the logo
+        // mark and legacy surfaces not yet redesigned (Field/Citizen).
+        // See docs/DESIGN_SYSTEM.md.
+        accent: {
+          50: '#EFF6FC',
+          100: '#DEECF9',
+          200: '#C7E0F4',
+          300: '#71AFE5',
+          400: '#2B88D8',
+          500: '#0F6CBD',
+          600: '#0C5A9E',
+          700: '#0A4A82',
+          800: '#083861',
+          900: '#062843',
+        },
         // status: reserved ONLY for severity / operational state, never decoration
         status: {
           critical: '#DC2626',

@@ -23,15 +23,16 @@ import {
 import { useAsync } from '../lib/useAsync'
 
 /**
- * Operations & pilot administration (Phase 10, plan §10/§18).
+ * Operations & pilot administration (Phase 10, plan §10/§18). Phase 11 UI
+ * redesign: same deliberately-narrow scope, restyled to the light/white
+ * admin-console look — a mobile card view for system health (rather than a
+ * shrunk table), and a denser two-column grid for the activation sections
+ * on wide screens so the page doesn't read as one long, sparse column.
  *
- * Deliberately narrow: system health (read-only rollup) + activation
- * toggles for the handful of things a pilot operator genuinely needs to
- * flip without a redeploy (feature flags, stations, responsibility
- * registry, SLA rules, playbooks). Not a general database editor — deeper
- * edits (new playbook fields, registry contact channels, SLA hour values)
- * are still direct SQL, same as the existing "no in-app playbook editor
- * yet" limitation this phase does not attempt to close.
+ * Not a general database editor — deeper edits (new playbook fields,
+ * registry contact channels, SLA hour values) are still direct SQL, same as
+ * the existing "no in-app playbook editor yet" limitation this phase does
+ * not attempt to close.
  */
 
 const FEATURE_FLAG_LABEL: Record<FeatureFlagName, string> = {
@@ -46,7 +47,7 @@ const FEATURE_FLAG_LABEL: Record<FeatureFlagName, string> = {
   notifications_whatsapp: 'WhatsApp notifications',
 }
 
-function StaleBadge({ isStale }: { isStale: boolean }) {
+function StatusBadge({ isStale }: { isStale: boolean }) {
   return (
     <span
       className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
@@ -55,6 +56,21 @@ function StaleBadge({ isStale }: { isStale: boolean }) {
     >
       {isStale ? 'Stale' : 'OK'}
     </span>
+  )
+}
+
+function ToggleButton({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`focus-ring rounded-full px-3 py-1 text-xs font-bold uppercase transition disabled:opacity-50 ${
+        on ? 'bg-status-success/10 text-status-success' : 'bg-slate-100 text-slate-500'
+      }`}
+    >
+      {on ? 'On' : 'Off'}
+    </button>
   )
 }
 
@@ -71,7 +87,7 @@ function SystemHealthSection() {
           <button
             type="button"
             onClick={() => state.refresh()}
-            className="focus-ring rounded-lg border border-ink-200 px-2.5 py-1 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+            className="focus-ring rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Refresh
           </button>
@@ -87,37 +103,61 @@ function SystemHealthSection() {
       ) : rows.length === 0 ? (
         <EmptyState icon="🩺">No job runs recorded yet — jobs record themselves the first time they run.</EmptyState>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="text-ink-400">
-              <tr>
-                <th className="px-4 py-2 font-medium">Job</th>
-                <th className="px-2 py-2 font-medium">City</th>
-                <th className="px-2 py-2 font-medium">Status</th>
-                <th className="px-2 py-2 font-medium">Last run</th>
-                <th className="px-2 py-2 font-medium">Error</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink-900/5">
-              {rows.map((r) => (
-                <tr key={`${r.job_name}:${r.city_code ?? ''}`}>
-                  <td className="px-4 py-2 font-semibold text-ink-800">{r.job_name}</td>
-                  <td className="px-2 py-2 text-ink-500">{r.city_code ?? 'all'}</td>
-                  <td className="px-2 py-2">
-                    <StaleBadge isStale={r.is_stale} />
-                    <span className="ml-1.5 text-ink-400">{r.last_status}</span>
-                  </td>
-                  <td className="px-2 py-2 text-ink-500">
-                    {r.last_completed_at ? new Date(r.last_completed_at).toLocaleString() : '—'}
-                  </td>
-                  <td className="max-w-xs truncate px-2 py-2 text-status-critical" title={r.last_error_message ?? ''}>
-                    {r.last_error_message ?? ''}
-                  </td>
+        <>
+          {/* Mobile: compact cards, not a shrunk table */}
+          <ul className="divide-y divide-slate-100 sm:hidden">
+            {rows.map((r) => (
+              <li key={`${r.job_name}:${r.city_code ?? ''}`} className="px-4 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-slate-800">{r.job_name}</span>
+                  <StatusBadge isStale={r.is_stale} />
+                </div>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  {r.city_code ?? 'all'} · {r.last_status} ·{' '}
+                  {r.last_completed_at ? new Date(r.last_completed_at).toLocaleString() : 'never run'}
+                </p>
+                {r.last_error_message && (
+                  <p className="mt-1 truncate text-xs text-status-critical" title={r.last_error_message}>
+                    {r.last_error_message}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop: table */}
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full text-left text-xs">
+              <thead className="text-slate-400">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Job</th>
+                  <th className="px-2 py-2 font-medium">City</th>
+                  <th className="px-2 py-2 font-medium">Status</th>
+                  <th className="px-2 py-2 font-medium">Last run</th>
+                  <th className="px-2 py-2 font-medium">Error</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((r) => (
+                  <tr key={`${r.job_name}:${r.city_code ?? ''}`}>
+                    <td className="px-4 py-2 font-semibold text-slate-800">{r.job_name}</td>
+                    <td className="px-2 py-2 text-slate-500">{r.city_code ?? 'all'}</td>
+                    <td className="px-2 py-2">
+                      <StatusBadge isStale={r.is_stale} />
+                      <span className="ml-1.5 text-slate-400">{r.last_status}</span>
+                    </td>
+                    <td className="px-2 py-2 text-slate-500">
+                      {r.last_completed_at ? new Date(r.last_completed_at).toLocaleString() : '—'}
+                    </td>
+                    <td className="max-w-xs truncate px-2 py-2 text-status-critical" title={r.last_error_message ?? ''}>
+                      {r.last_error_message ?? ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </Card>
   )
@@ -140,20 +180,11 @@ function FeatureFlagsSection({ city, onChanged }: { city: CityConfigRow; onChang
   return (
     <Card>
       <CardHeader title="Feature flags" subtitle={`${city.name} — pause a risky pilot feature without a redeploy`} />
-      <ul className="divide-y divide-ink-900/5">
+      <ul className="divide-y divide-slate-100">
         {KNOWN_FEATURE_FLAGS.map((flag) => (
           <li key={flag} className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-sm text-ink-700">{FEATURE_FLAG_LABEL[flag]}</span>
-            <button
-              type="button"
-              disabled={busy === flag}
-              onClick={() => toggle(flag)}
-              className={`focus-ring rounded-full px-3 py-1 text-xs font-bold uppercase transition disabled:opacity-50 ${
-                flags[flag] ? 'bg-status-success/10 text-status-success' : 'bg-ink-100 text-ink-500'
-              }`}
-            >
-              {flags[flag] ? 'On' : 'Off'}
-            </button>
+            <span className="text-sm text-slate-700">{FEATURE_FLAG_LABEL[flag]}</span>
+            <ToggleButton on={flags[flag]} disabled={busy === flag} onClick={() => toggle(flag)} />
           </li>
         ))}
       </ul>
@@ -191,20 +222,15 @@ function ActivationList<T extends { id: number; is_active: boolean | null }>({
       {items.length === 0 ? (
         <EmptyState icon="—">Nothing configured yet for this city.</EmptyState>
       ) : (
-        <ul className="divide-y divide-ink-900/5">
+        <ul className="divide-y divide-slate-100">
           {items.map((item) => (
-            <li key={item.id} className="flex items-center justify-between px-4 py-2.5">
-              <span className="text-sm text-ink-700">{label(item)}</span>
-              <button
-                type="button"
+            <li key={item.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
+              <span className="min-w-0 truncate text-sm text-slate-700">{label(item)}</span>
+              <ToggleButton
+                on={!!item.is_active}
                 disabled={busyId === item.id}
                 onClick={() => handleToggle(item)}
-                className={`focus-ring rounded-full px-3 py-1 text-xs font-bold uppercase transition disabled:opacity-50 ${
-                  item.is_active ? 'bg-status-success/10 text-status-success' : 'bg-ink-100 text-ink-500'
-                }`}
-              >
-                {item.is_active ? 'Active' : 'Inactive'}
-              </button>
+              />
             </li>
           ))}
         </ul>
@@ -223,10 +249,10 @@ function PilotAdminSections({ city }: { city: CityConfigRow }) {
   if (!session) return null
 
   return (
-    <>
+    <div className="grid gap-3 lg:grid-cols-2">
       <ActivationList
         title="Stations"
-        subtitle="Deactivate a station known to be faulty/offline — anomaly detection skips it immediately; ingestion's own fetch loop is unaffected in this pass"
+        subtitle="Deactivate a faulty/offline station — anomaly detection skips it immediately"
         items={stations.data ?? []}
         label={(s) => s.name}
         onToggle={async (s) => {
@@ -246,7 +272,7 @@ function PilotAdminSections({ city }: { city: CityConfigRow }) {
       />
       <ActivationList
         title="SLA rules"
-        subtitle="An inactive rule is never matched — dispatch falls through to the next most-specific active rule, or the documented default"
+        subtitle="An inactive rule falls through to the next most-specific active rule"
         items={slaRules.data ?? []}
         label={(r) => r.slug ?? `Rule #${r.id}`}
         onToggle={async (r) => {
@@ -264,7 +290,7 @@ function PilotAdminSections({ city }: { city: CityConfigRow }) {
           playbooks.refresh()
         }}
       />
-    </>
+    </div>
   )
 }
 
@@ -276,7 +302,7 @@ export default function OpsView() {
 
   return (
     <AppShell subtitle="Operations & pilot admin">
-      <div className="mx-auto w-full max-w-3xl flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="mx-auto w-full max-w-5xl flex-1 space-y-3 overflow-y-auto bg-slate-50 p-3 sm:p-4">
         <SystemHealthSection />
 
         {citiesState.loading ? (
@@ -293,7 +319,7 @@ export default function OpsView() {
                 <select
                   value={activeCity?.id ?? ''}
                   onChange={(e) => setSelectedCityId(Number(e.target.value))}
-                  className="focus-ring rounded-lg border border-ink-200 px-2 py-1 text-sm"
+                  className="focus-ring rounded-lg border border-slate-200 px-2 py-1 text-sm"
                 >
                   {cities.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -312,7 +338,7 @@ export default function OpsView() {
           </>
         )}
 
-        <p className="pb-2 text-center text-[11px] text-ink-300">
+        <p className="pb-2 text-center text-[11px] text-slate-300">
           Build {BUILD_INFO.sha} · {BUILD_INFO.environment}
         </p>
       </div>

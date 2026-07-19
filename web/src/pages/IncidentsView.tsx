@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import AppShell from '../components/AppShell'
 import IncidentEvidencePanel from '../components/IncidentEvidencePanel'
-import { EmptyState, ErrorState, Skeleton, StaleBadge } from '../components/ui'
+import { EmptyState, ErrorState, Skeleton, StaleBadge, StickyActionBar, TabPanel, Tabs, type TabItem } from '../components/ui'
 import { useAuth } from '../lib/auth'
 import {
   CONFIDENCE_LABEL,
@@ -37,7 +37,13 @@ import { useAsync } from '../lib/useAsync'
 
 /**
  * Command incident queue — the Outlook-style list-detail-action workspace the
- * plan makes the *primary* command surface (§18-19).
+ * plan makes the *primary* command surface (§18-19). Phase 11 UI redesign:
+ * light/white surfaces, a real detail-workspace tab structure (Overview /
+ * Evidence / Source attribution / Intervention / Dispatch — mapped onto the
+ * EXISTING panel components below, no panel's own logic touched), and a
+ * mobile layout that swaps the desktop's simultaneous list+detail columns
+ * for queue chips → list → a full-screen detail page with back navigation,
+ * rather than shrinking the same 3-column layout.
  *
  * Added alongside the existing /command dashboard rather than replacing it: the
  * dashboard still works and is still useful, and the migration rule is to keep
@@ -46,16 +52,24 @@ import { useAsync } from '../lib/useAsync'
 
 const QUEUE_ORDER: QueueKey[] = ['active', 'predicted', 'verification', 'assigned', 'escalated', 'recurrence', 'closed']
 
+const DETAIL_TABS: TabItem[] = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'evidence', label: 'Evidence' },
+  { key: 'attribution', label: 'Source attribution' },
+  { key: 'intervention', label: 'Intervention' },
+  { key: 'dispatch', label: 'Dispatch' },
+]
+
 const SEVERITY_STYLE: Record<Severity, string> = {
   severe: 'bg-red-100 text-red-800',
   high: 'bg-orange-100 text-orange-800',
   moderate: 'bg-amber-100 text-amber-800',
-  low: 'bg-ink-100 text-ink-600',
+  low: 'bg-slate-100 text-slate-600',
 }
 
 const CONFIDENCE_STYLE: Record<string, string> = {
-  suspected: 'bg-ink-100 text-ink-600',
-  corroborated: 'bg-sky-100 text-sky-800',
+  suspected: 'bg-slate-100 text-slate-600',
+  corroborated: 'bg-accent-100 text-accent-800',
   officially_verified: 'bg-green-100 text-green-800',
 }
 
@@ -70,6 +84,10 @@ function fmtAge(ts: string): string {
   return `${Math.floor(h / 24)}d`
 }
 
+/** Desktop: a vertical list of queue rows (rendered in AppShell's secondaryNav
+ *  column). Mobile: the SAME data, styled as horizontally-scrollable chips —
+ *  intentionally distinct treatments of one shared data structure, not one
+ *  layout auto-shrunk into the other. */
 function QueueNav({
   counts,
   active,
@@ -80,7 +98,7 @@ function QueueNav({
   onSelect: (q: QueueKey) => void
 }) {
   return (
-    <div className="flex gap-1 sm:flex-col">
+    <div className="flex gap-1.5 overflow-x-auto sm:flex-col sm:gap-1 sm:overflow-visible">
       {QUEUE_ORDER.map((q) => {
         const selected = q === active
         return (
@@ -89,14 +107,14 @@ function QueueNav({
             type="button"
             onClick={() => onSelect(q)}
             aria-current={selected ? 'true' : undefined}
-            className={`focus-ring flex flex-shrink-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition ${
-              selected ? 'bg-brand-700 font-semibold text-white' : 'text-ink-700 hover:bg-ink-100'
+            className={`focus-ring flex flex-shrink-0 items-center justify-between gap-2 rounded-full px-3 py-1.5 text-left text-sm transition sm:rounded-lg sm:px-2.5 ${
+              selected ? 'bg-accent-600 font-semibold text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 sm:bg-transparent sm:ring-0 sm:hover:bg-slate-100'
             }`}
           >
             <span>{QUEUE_LABELS[q]}</span>
             <span
               className={`rounded px-1.5 text-[10px] font-bold tabular-nums ${
-                selected ? 'bg-white/20 text-white' : 'bg-ink-100 text-ink-600'
+                selected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
               }`}
             >
               {counts[q]}
@@ -127,7 +145,7 @@ function IncidentRow({
         onClick={onSelect}
         aria-current={selected ? 'true' : undefined}
         className={`focus-ring w-full border-l-2 px-3 py-2.5 text-left transition ${
-          selected ? 'border-brand-700 bg-brand-50' : 'border-transparent hover:bg-ink-50'
+          selected ? 'border-accent-600 bg-accent-50' : 'border-transparent hover:bg-slate-50'
         }`}
       >
         <div className="flex items-center gap-1.5">
@@ -137,7 +155,7 @@ function IncidentRow({
             </span>
           ) : (
             <span
-              className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase text-ink-400 ring-1 ring-inset ring-ink-200"
+              className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-400 ring-1 ring-inset ring-slate-200"
               title="No forecast for this ward, so severity could not be derived"
             >
               No severity
@@ -151,14 +169,14 @@ function IncidentRow({
               Escalated
             </span>
           )}
-          <span className="ml-auto text-[11px] tabular-nums text-ink-400">{fmtAge(incident.detected_at)}</span>
+          <span className="ml-auto text-[11px] tabular-nums text-slate-400">{fmtAge(incident.detected_at)}</span>
         </div>
-        <p className="mt-1 line-clamp-2 text-sm text-ink-800">{incident.summary ?? `Incident #${incident.id}`}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-ink-400">
+        <p className="mt-1 line-clamp-2 text-sm text-slate-800">{incident.summary ?? `Incident #${incident.id}`}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
           <span>#{incident.id}</span>
           {incident.ward_name && <span>· {incident.ward_name}</span>}
           <span
-            className={`rounded px-1 font-semibold ${CONFIDENCE_STYLE[incident.source_confidence] ?? 'bg-ink-100'}`}
+            className={`rounded px-1 font-semibold ${CONFIDENCE_STYLE[incident.source_confidence] ?? 'bg-slate-100'}`}
           >
             {CONFIDENCE_LABEL[incident.source_confidence]}
           </span>
@@ -238,25 +256,25 @@ function EvidenceMissionDialog({
   }
 
   return (
-    <div className="z-modal fixed inset-0 flex items-end justify-center bg-ink-900/40 p-3 sm:items-center">
+    <div className="z-modal fixed inset-0 flex items-end justify-center bg-slate-900/40 p-3 sm:items-center">
       <div role="dialog" aria-modal="true" aria-label="Request evidence" className="w-full max-w-md rounded-2xl bg-white p-4 shadow-card-lg">
-        <h2 className="text-sm font-semibold text-ink-900">Request the next best evidence</h2>
-        <p className="mt-0.5 text-xs text-ink-400">
+        <h2 className="text-sm font-semibold text-slate-900">Request the next best evidence</h2>
+        <p className="mt-0.5 text-xs text-slate-400">
           The smallest useful mission that would raise or rule out confidence in this source.
         </p>
 
-        <label className="mt-3 block text-xs font-semibold text-ink-700">Mission type</label>
+        <label className="mt-3 block text-xs font-semibold text-slate-700">Mission type</label>
         <select
           value={missionType}
           onChange={(e) => setMissionType(e.target.value as typeof missionType)}
-          className="focus-ring mt-1 w-full rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-sm"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
         >
           <option value="field_photo">Geotagged field photograph (officer)</option>
           <option value="source_status_check">Source operating-status check (officer)</option>
           <option value="citizen_verification">Targeted citizen verification</option>
         </select>
 
-        <label className="mt-3 block text-xs font-semibold text-ink-700">
+        <label className="mt-3 block text-xs font-semibold text-slate-700">
           {isCitizenMission ? 'Ask which reporter' : 'Assign to'}
         </label>
         {(isCitizenMission ? reporters.loading : officers.loading) ? (
@@ -265,14 +283,14 @@ function EvidenceMissionDialog({
           <p className="mt-1 text-xs text-status-critical">{isCitizenMission ? reporters.error : officers.error}</p>
         ) : isCitizenMission ? (
           reporterList.length === 0 ? (
-            <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-ink-600">
+            <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-slate-600">
               No citizen reports are linked to this incident, so there is nobody to ask. Use an officer mission instead.
             </p>
           ) : (
             <select
               value={assignee}
               onChange={(e) => setAssignee(e.target.value)}
-              className="focus-ring mt-1 w-full rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-sm"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
             >
               <option value="">Select a reporter…</option>
               {reporterList.map((r) => (
@@ -285,7 +303,7 @@ function EvidenceMissionDialog({
         ) : officerList.length === 0 ? (
           // Honest dead-end: a real operational state (no officer covers this
           // ward), not an empty dropdown to shrug at.
-          <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-ink-600">
+          <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-slate-600">
             No field officer is assigned to this ward, so this mission cannot be dispatched. Assign an officer to the
             ward first (roles are set in SQL today — see README).
           </p>
@@ -293,7 +311,7 @@ function EvidenceMissionDialog({
           <select
             value={assignee}
             onChange={(e) => setAssignee(e.target.value)}
-            className="focus-ring mt-1 w-full rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-sm"
+            className="focus-ring mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
           >
             <option value="">Select an officer…</option>
             {officerList.map((o) => (
@@ -305,32 +323,32 @@ function EvidenceMissionDialog({
         )}
 
         {isCitizenMission && (
-          <p className="mt-1.5 text-[11px] leading-relaxed text-ink-400">
+          <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
             The citizen is only shown this if our safety rule allows it — we never ask the public to approach fires or
             industrial sites, or to go outside when the air is severe.
           </p>
         )}
 
-        <label className="mt-3 block text-xs font-semibold text-ink-700">
-          Why is this evidence needed? <span className="font-normal text-ink-400">(recorded on the incident)</span>
+        <label className="mt-3 block text-xs font-semibold text-slate-700">
+          Why is this evidence needed? <span className="font-normal text-slate-400">(recorded on the incident)</span>
         </label>
         <textarea
           rows={3}
           value={rationale}
           onChange={(e) => setRationale(e.target.value)}
-          className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-xs"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
         />
 
         {isCitizenMission && (
           <>
-            <label className="mt-3 block text-xs font-semibold text-ink-700">
+            <label className="mt-3 block text-xs font-semibold text-slate-700">
               Question shown to the citizen{' '}
-              <span className="font-normal text-ink-400">(never include enforcement detail)</span>
+              <span className="font-normal text-slate-400">(never include enforcement detail)</span>
             </label>
             <input
               value={publicPrompt}
               onChange={(e) => setPublicPrompt(e.target.value)}
-              className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-xs"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
             />
           </>
         )}
@@ -341,7 +359,7 @@ function EvidenceMissionDialog({
           <button
             type="button"
             onClick={onClose}
-            className="focus-ring rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+            className="focus-ring rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -350,7 +368,7 @@ function EvidenceMissionDialog({
             disabled={busy || !rationale.trim() || !assignee}
             title={!assignee ? 'Choose who this mission goes to — an unassigned mission reaches nobody' : undefined}
             onClick={create}
-            className="focus-ring rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
+            className="focus-ring rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-700 disabled:opacity-50"
           >
             {busy ? 'Creating…' : 'Create mission'}
           </button>
@@ -360,7 +378,15 @@ function EvidenceMissionDialog({
   )
 }
 
-function DetailHeader({ incident, onRefresh }: { incident: Incident; onRefresh: () => void }) {
+function DetailHeader({
+  incident,
+  onRefresh,
+  onBack,
+}: {
+  incident: Incident
+  onRefresh: () => void
+  onBack?: () => void
+}) {
   const { session } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -403,16 +429,25 @@ function DetailHeader({ incident, onRefresh }: { incident: Incident; onRefresh: 
   const inspectionBlocked = taskBlockedReason(incident.source_confidence, 'inspection')
 
   return (
-    <div className="border-b border-ink-900/10 bg-white px-4 py-3">
+    <div className="flex-shrink-0 border-b border-slate-200 bg-white px-4 py-3">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="focus-ring mb-2 flex items-center gap-1 text-xs font-semibold text-accent-700 lg:hidden"
+        >
+          ← Back to queue
+        </button>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="text-base font-semibold text-ink-900">{incident.summary ?? `Incident #${incident.id}`}</h1>
-          <p className="mt-0.5 text-xs text-ink-400">
+          <h1 className="text-base font-semibold text-slate-900">{incident.summary ?? `Incident #${incident.id}`}</h1>
+          <p className="mt-0.5 text-xs text-slate-400">
             #{incident.id} · detected {new Date(incident.detected_at).toLocaleString()} · via{' '}
             {incident.detection_method.replace(/_/g, ' ')}
           </p>
         </div>
-        <span className="rounded-lg bg-ink-100 px-2 py-1 text-xs font-semibold capitalize text-ink-700">
+        <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold capitalize text-slate-700">
           {incident.status.replace(/_/g, ' ')}
         </span>
       </div>
@@ -420,46 +455,46 @@ function DetailHeader({ incident, onRefresh }: { incident: Incident; onRefresh: 
       {/* The facts the plan requires on the selected incident (§4 of the brief) */}
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
         <div>
-          <dt className="text-ink-400">Location</dt>
-          <dd className="font-semibold text-ink-800">
+          <dt className="text-slate-400">Location</dt>
+          <dd className="font-semibold text-slate-800">
             {incident.ward_name ?? 'Unknown ward'}
             {incident.lat != null && incident.lng != null && (
-              <span className="ml-1 font-normal text-ink-400">
+              <span className="ml-1 font-normal text-slate-400">
                 {incident.lat.toFixed(3)}, {incident.lng.toFixed(3)}
               </span>
             )}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Pollutant</dt>
-          <dd className="font-semibold uppercase text-ink-800">{incident.primary_pollutant ?? '—'}</dd>
+          <dt className="text-slate-400">Pollutant</dt>
+          <dd className="font-semibold uppercase text-slate-800">{incident.primary_pollutant ?? '—'}</dd>
         </div>
         <div>
-          <dt className="text-ink-400">Local excess</dt>
-          <dd className="font-semibold tabular-nums text-ink-800">
+          <dt className="text-slate-400">Local excess</dt>
+          <dd className="font-semibold tabular-nums text-slate-800">
             {incident.local_excess != null ? (
               `+${Math.round(incident.local_excess)} µg/m³`
             ) : (
-              <span className="font-normal text-ink-400" title="No forecast available for this ward">
+              <span className="font-normal text-slate-400" title="No forecast available for this ward">
                 Unavailable
               </span>
             )}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Severity</dt>
+          <dt className="text-slate-400">Severity</dt>
           <dd>
             {severity ? (
               <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${SEVERITY_STYLE[severity]}`}>
                 {severity}
               </span>
             ) : (
-              <span className="text-ink-400">Unavailable</span>
+              <span className="text-slate-400">Unavailable</span>
             )}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Evidence level</dt>
+          <dt className="text-slate-400">Evidence level</dt>
           <dd>
             <span
               className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
@@ -471,31 +506,33 @@ function DetailHeader({ incident, onRefresh }: { incident: Incident; onRefresh: 
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Assigned authority</dt>
-          <dd className="font-semibold text-ink-800">
-            {incident.assigned_authority ?? <span className="font-normal text-ink-400">Not routed yet</span>}
+          <dt className="text-slate-400">Assigned authority</dt>
+          <dd className="font-semibold text-slate-800">
+            {incident.assigned_authority ?? <span className="font-normal text-slate-400">Not routed yet</span>}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Classification</dt>
-          <dd className="font-semibold capitalize text-ink-800">
-            {incident.classification ?? <span className="font-normal text-ink-400">Not classified</span>}
+          <dt className="text-slate-400">Classification</dt>
+          <dd className="font-semibold capitalize text-slate-800">
+            {incident.classification ?? <span className="font-normal text-slate-400">Not classified</span>}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Permitted tasks</dt>
-          <dd className="font-semibold text-ink-800">{kinds.join(', ')}</dd>
+          <dt className="text-slate-400">Permitted tasks</dt>
+          <dd className="font-semibold text-slate-800">{kinds.join(', ')}</dd>
         </div>
       </dl>
 
-      {/* Action panel. Which buttons exist is decided by the evidence level, and
-          a blocked action explains itself rather than being silently absent. */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      {/* Action toolbar — sticky at the bottom of the viewport on mobile
+          (thumb reach), a normal inline row on desktop. Which buttons exist is
+          decided by the evidence level, and a blocked action explains itself
+          rather than being silently absent. */}
+      <StickyActionBar className="-mx-4 mt-3 px-4 sm:mx-0">
         <button
           type="button"
           disabled={busy}
           onClick={() => setMissionOpen(true)}
-          className="focus-ring rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-800 disabled:opacity-50"
+          className="focus-ring rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-700 disabled:opacity-50"
         >
           Request evidence
         </button>
@@ -504,7 +541,7 @@ function DetailHeader({ incident, onRefresh }: { incident: Incident; onRefresh: 
           disabled={busy || !!inspectionBlocked}
           title={inspectionBlocked ?? 'Refer to the responsible authority'}
           onClick={assign}
-          className="focus-ring rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="focus-ring rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Route to authority
         </button>
@@ -523,15 +560,15 @@ function DetailHeader({ incident, onRefresh }: { incident: Incident; onRefresh: 
             disabled={busy}
             onClick={close}
             title="An incident with a completed action and no impact evaluation cannot be closed."
-            className="focus-ring rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 transition hover:bg-ink-50 disabled:opacity-50"
+            className="focus-ring rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
           >
             Close incident
           </button>
         )}
-      </div>
+      </StickyActionBar>
 
       {inspectionBlocked && (
-        <p className="mt-2 rounded-lg bg-ink-50 px-2.5 py-1.5 text-[11px] text-ink-600">
+        <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600">
           <span className="font-semibold">Why is routing unavailable?</span> {inspectionBlocked}
         </p>
       )}
@@ -547,6 +584,7 @@ function DetailHeader({ incident, onRefresh }: { incident: Incident; onRefresh: 
 export default function IncidentsView() {
   const [queue, setQueue] = useState<QueueKey>('active')
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState('overview')
 
   const list = useAsync(() => listIncidents({ limit: 200 }), [], { staleAfterMs: 120_000 })
 
@@ -592,6 +630,13 @@ export default function IncidentsView() {
     { enabled: detailId != null },
   )
 
+  // A new incident selection always starts on Overview — staying on e.g.
+  // "Dispatch" from the previously-viewed incident would be a confusing
+  // leftover, not a deliberate choice.
+  useEffect(() => {
+    setActiveTab('overview')
+  }, [detailId])
+
   const refreshBoth = useCallback(() => {
     list.refresh()
     detail.refresh()
@@ -603,16 +648,20 @@ export default function IncidentsView() {
       secondaryNav={<QueueNav counts={counts} active={queue} onSelect={setQueue} />}
     >
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* ── list column ── */}
-        <div className="flex min-h-0 w-full flex-col border-b border-ink-900/10 bg-white lg:w-80 lg:border-b-0 lg:border-r">
-          <div className="flex items-center gap-2 border-b border-ink-900/5 px-3 py-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-500">{QUEUE_LABELS[queue]}</h2>
-            <span className="rounded bg-ink-100 px-1.5 text-[10px] font-bold text-ink-600">{filtered.length}</span>
+        {/* ── list column: hidden on mobile once an incident is selected ── */}
+        <div
+          className={`min-h-0 w-full flex-col border-b border-slate-200 bg-white lg:flex lg:w-80 lg:border-b-0 lg:border-r ${
+            detailId != null ? 'hidden lg:flex' : 'flex'
+          }`}
+        >
+          <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{QUEUE_LABELS[queue]}</h2>
+            <span className="rounded bg-slate-100 px-1.5 text-[10px] font-bold text-slate-600">{filtered.length}</span>
             {list.stale && <StaleBadge />}
             <button
               type="button"
               onClick={() => list.refresh()}
-              className="focus-ring ml-auto rounded px-1.5 py-0.5 text-[11px] font-semibold text-brand-700 hover:bg-ink-50"
+              className="focus-ring ml-auto rounded px-1.5 py-0.5 text-[11px] font-semibold text-accent-700 hover:bg-slate-50"
             >
               {list.refreshing ? '…' : 'Refresh'}
             </button>
@@ -652,14 +701,17 @@ export default function IncidentsView() {
           {/* The list is the primary surface; say so about stale data rather than
               quietly showing old rows as current. */}
           {list.error && !list.loading && (list.data?.length ?? 0) > 0 && (
-            <p className="border-t border-ink-900/5 bg-status-warning/10 px-3 py-1.5 text-[11px] text-ink-600">
+            <p className="border-t border-slate-100 bg-status-warning/10 px-3 py-1.5 text-[11px] text-slate-600">
               Showing the last data loaded — refresh failed.
             </p>
           )}
         </div>
 
-        {/* ── detail column ── */}
-        <div className="min-h-0 flex-1 overflow-y-auto bg-cream">
+        {/* ── detail column: hidden on mobile until an incident is selected;
+              a full-screen page there, not a squeezed side column ── */}
+        <div
+          className={`min-h-0 flex-1 flex-col bg-slate-50 lg:flex ${detailId != null ? 'flex' : 'hidden lg:flex'}`}
+        >
           {detailId == null ? (
             <EmptyState icon="📋">Select an incident to see its evidence workspace.</EmptyState>
           ) : detail.loading ? (
@@ -673,13 +725,30 @@ export default function IncidentsView() {
             <EmptyState icon="🔍">This incident is no longer available.</EmptyState>
           ) : (
             <>
-              <DetailHeader incident={detail.data.incident} onRefresh={refreshBoth} />
-              <PredictedIncidentPanel detail={detail.data} onRefresh={refreshBoth} />
-              <SourceAttributionPanel detail={detail.data} onRefresh={refreshBoth} />
-              <RecurrencePanel detail={detail.data} onRefresh={refreshBoth} />
-              <InterventionPanel detail={detail.data} onRefresh={refreshBoth} />
-              <TaskDispatchPanel detail={detail.data} onRefresh={refreshBoth} />
-              <IncidentEvidencePanel detail={detail.data} />
+              <DetailHeader
+                incident={detail.data.incident}
+                onRefresh={refreshBoth}
+                onBack={() => setSelectedId(null)}
+              />
+              <Tabs tabs={DETAIL_TABS} active={activeTab} onChange={setActiveTab} />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <TabPanel active={activeTab === 'overview'}>
+                  <PredictedIncidentPanel detail={detail.data} onRefresh={refreshBoth} />
+                  <RecurrencePanel detail={detail.data} onRefresh={refreshBoth} />
+                </TabPanel>
+                <TabPanel active={activeTab === 'evidence'}>
+                  <IncidentEvidencePanel detail={detail.data} />
+                </TabPanel>
+                <TabPanel active={activeTab === 'attribution'}>
+                  <SourceAttributionPanel detail={detail.data} onRefresh={refreshBoth} />
+                </TabPanel>
+                <TabPanel active={activeTab === 'intervention'}>
+                  <InterventionPanel detail={detail.data} onRefresh={refreshBoth} />
+                </TabPanel>
+                <TabPanel active={activeTab === 'dispatch'}>
+                  <TaskDispatchPanel detail={detail.data} onRefresh={refreshBoth} />
+                </TabPanel>
+              </div>
             </>
           )}
         </div>

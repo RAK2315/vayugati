@@ -126,6 +126,59 @@ export function UnavailableBadge({ label = 'Unavailable' }: { label?: string }) 
   )
 }
 
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+// Purely presentational: every panel it wraps stays mounted (a hidden tab is
+// `className="hidden"`, not unmounted), so switching tabs never re-triggers a
+// panel's own data fetching — behaviourally identical to the pre-redesign
+// always-stacked layout, just one section visible at a time.
+export interface TabItem {
+  key: string
+  label: string
+}
+
+export function Tabs({ tabs, active, onChange }: { tabs: TabItem[]; active: string; onChange: (key: string) => void }) {
+  return (
+    <div role="tablist" aria-label="Incident sections" className="flex flex-shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-white px-2 sm:px-3">
+      {tabs.map((t) => {
+        const selected = t.key === active
+        return (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(t.key)}
+            className={`focus-ring flex-shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition ${
+              selected ? 'border-accent-600 text-accent-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {t.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+export function TabPanel({ active, children }: { active: boolean; children: ReactNode }) {
+  return <div className={active ? 'contents' : 'hidden'}>{children}</div>
+}
+
+// ── Sticky action bar ────────────────────────────────────────────────────────
+// Mobile: pinned to the bottom of the nearest scroll container, above any
+// content, with a top border/backdrop separating it from what's scrolled
+// underneath. Desktop: a normal, non-sticky inline toolbar — "sticky" is a
+// mobile-specific affordance for thumb reach, not a desktop requirement.
+export function StickyActionBar({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={`sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur sm:static sm:border-t-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none ${className}`}
+    >
+      {children}
+    </div>
+  )
+}
+
 // ── Offline banner ───────────────────────────────────────────────────────────
 // Shell-level: tracks the browser's connectivity state and surfaces it
 // explicitly rather than letting screens fail silently. Field/citizen surfaces
