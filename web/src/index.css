@@ -8,14 +8,18 @@
     text-rendering: optimizeLegibility;
   }
   body {
-    @apply bg-slate-50 text-slate-900 font-sans;
+    @apply bg-cream text-ink-900 font-sans;
   }
 }
 
 @layer components {
-  /* card used across all light surfaces */
+  /* card used across all light work surfaces */
   .card {
-    @apply rounded-2xl bg-white shadow-card ring-1 ring-slate-900/5;
+    @apply rounded-2xl bg-white shadow-card ring-1 ring-ink-900/5;
+  }
+  /* thin, low-key focus ring consistent with the M365-style shell */
+  .focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-1;
   }
   /* skeleton loading block */
   .skeleton {

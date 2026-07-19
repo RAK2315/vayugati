@@ -13,6 +13,27 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 OPENAQ_API_KEY = os.getenv("OPENAQ_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
+# local | test | staging | production (Phase 10, plan §4) — tags every
+# structured log line and system_health row so a pilot/production incident
+# is never confused with a local dev run hitting the same log aggregator.
+# Does NOT select which Supabase project is used — that's decided entirely
+# by SUPABASE_URL above; ENVIRONMENT is display/log metadata only, exactly
+# like the web app's VITE_ENVIRONMENT. Unrecognised values fall back to
+# "local" rather than silently mislabelling logs as production.
+_VALID_ENVIRONMENTS = ("local", "test", "staging", "production")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "local").lower()
+if ENVIRONMENT not in _VALID_ENVIRONMENTS:
+    ENVIRONMENT = "local"
+
+# Notification delivery (Phase 9) — all optional. Unset means "no real
+# provider configured", and notifications.py must say so honestly rather
+# than claiming a delivery it didn't make (plan §6).
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587") or "587")
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_FROM = os.getenv("SMTP_FROM", "")
+
 STATIONS_FILE = Path(__file__).resolve().parent.parent / "stations.yaml"
 
 

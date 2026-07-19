@@ -1,10 +1,14 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import ErrorBoundary from './components/ErrorBoundary'
 import RequireRole from './components/RequireRole'
 import { AuthProvider, roleHome, useAuth } from './lib/auth'
 import CitizenView from './pages/CitizenView'
 import CommandView from './pages/CommandView'
 import FieldView from './pages/FieldView'
+import IncidentsView from './pages/IncidentsView'
 import Login from './pages/Login'
+import MissionsView from './pages/MissionsView'
+import OpsView from './pages/OpsView'
 
 // "/" -> the logged-in user's home view, or /login
 function Home() {
@@ -18,38 +22,67 @@ function Home() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/citizen"
-            element={
-              <RequireRole allow={['citizen', 'admin']}>
-                <CitizenView />
-              </RequireRole>
-            }
-          />
-          <Route
-            path="/field"
-            element={
-              <RequireRole allow={['field_officer', 'admin']}>
-                <FieldView />
-              </RequireRole>
-            }
-          />
-          <Route
-            path="/command"
-            element={
-              <RequireRole allow={['commander', 'admin']}>
-                <CommandView />
-              </RequireRole>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/citizen"
+              element={
+                <RequireRole allow={['citizen', 'admin']}>
+                  <CitizenView />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/field"
+              element={
+                <RequireRole allow={['field_officer', 'admin']}>
+                  <FieldView />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/command"
+              element={
+                <RequireRole allow={['commander', 'admin']}>
+                  <CommandView />
+                </RequireRole>
+              }
+            />
+            {/* Phase 3: the incident queue is added alongside the existing
+                /command dashboard, not in place of it. */}
+            <Route
+              path="/incidents"
+              element={
+                <RequireRole allow={['commander', 'admin']}>
+                  <IncidentsView />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/missions"
+              element={
+                <RequireRole allow={['field_officer', 'admin']}>
+                  <MissionsView />
+                </RequireRole>
+              }
+            />
+            {/* Phase 10: system health + minimal pilot admin surface. */}
+            <Route
+              path="/ops"
+              element={
+                <RequireRole allow={['commander', 'admin']}>
+                  <OpsView />
+                </RequireRole>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }

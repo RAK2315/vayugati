@@ -1,4 +1,10 @@
+import type { Database } from './database.types'
 import { supabase } from './supabase'
+
+/** Enum types come from the generated schema, so a DB change surfaces as a
+ *  compile error here rather than a runtime 400 from PostgREST. */
+export type ReportStatus = Database['public']['Enums']['report_status']
+export type SourceCategory = Database['public']['Enums']['source_category']
 
 export interface Reading {
   aqi: number | null
@@ -225,12 +231,14 @@ export interface MyReport {
   ai_meta: { hindi_advisory?: string } | null
   status: string
   created_at: string
+  /** Set once the report has been matched to (or has opened) an incident. */
+  incident_id: number | null
 }
 
 export async function fetchMyReports(userId: string): Promise<MyReport[]> {
   const { data } = await supabase
     .from('reports')
-    .select('id, description, ai_category, ai_meta, status, created_at')
+    .select('id, description, ai_category, ai_meta, status, created_at, incident_id')
     .eq('reporter_id', userId)
     .order('created_at', { ascending: false })
     .limit(10)
@@ -241,7 +249,7 @@ export async function fetchMyReports(userId: string): Promise<MyReport[]> {
 
 export async function updateReportStatus(
   reportId: number,
-  status: string,
+  status: ReportStatus,
   actorId: string,
   note?: string,
 ): Promise<void> {
@@ -267,11 +275,18 @@ export interface ForecastPoint {
   model_version: string | null
 }
 
+/**
+ * The citizen-facing PM2.5 curve. Explicitly scoped to `pollutant = 'pm25'`
+ * as of Phase 8 — `forecasts` now also holds pm10/no2 rows for the same
+ * ward side by side, so an unscoped query here would silently mix a
+ * different pollutant's numbers into what this chart presents as PM2.5.
+ */
 export async function fetchForecast(wardId: number): Promise<ForecastPoint[]> {
   const { data } = await supabase
     .from('forecasts')
     .select('horizon_ts, pm25_pred, baseline_pred, local_excess, confidence, model_version')
     .eq('ward_id', wardId)
+    .eq('pollutant', 'pm25')
     .order('horizon_ts')
     .limit(48)
   return data ?? []
@@ -292,6 +307,7 @@ export async function fetchAllForecasts(): Promise<Map<number, WardForecastSumma
   const { data } = await supabase
     .from('forecasts')
     .select('ward_id, horizon_ts, pm25_pred, baseline_pred, local_excess, confidence, model_version')
+    .eq('pollutant', 'pm25')
     .order('horizon_ts')
     .limit(48 * 20)
   const byWard = new Map<number, WardForecastSummary>()
@@ -343,7 +359,10 @@ export async function fetchAttribution(wardId: number): Promise<Attribution | nu
     .order('ts', { ascending: false })
     .limit(1)
     .maybeSingle()
-  return data ?? null
+  if (!data) return null
+  // `breakdown` is jsonb, so the generated type is `Json`. Narrow it here (the
+  // ingest service writes {source: share}) rather than widening Attribution.
+  return { ...data, breakdown: (data.breakdown ?? null) as Record<string, number> | null }
 }
 
 // ── Gati metric (Phase 4): signal-to-action time ─────────────────────────────
@@ -429,6 +448,19 @@ export function allocateTeams(
 
 const INGEST_URL = (import.meta.env.VITE_INGEST_URL as string) || 'http://localhost:8000'
 
+/** How long to wait for classification before giving up on it. */
+const CLASSIFY_TIMEOUT_MS = 8_000
+
+/**
+ * Classify a report via the ingest service, which writes `ai_category`/`ai_meta`
+ * back onto the report row.
+ *
+ * Best-effort by design: returns null when the service is down, unconfigured or
+ * slow, and the caller carries on. The timeout matters now that the report ->
+ * incident link waits for this (the matching rule reads `ai_category`): without
+ * it, an unreachable ingest service would hang the citizen's submit button
+ * indefinitely rather than falling back to an unclassified report.
+ */
 export async function classifyReport(params: {
   reportId: number
   description: string
@@ -445,6 +477,7 @@ export async function classifyReport(params: {
         ward_name: params.wardName,
         photo_url: params.photoUrl ?? null,
       }),
+      signal: AbortSignal.timeout(CLASSIFY_TIMEOUT_MS),
     })
     if (!res.ok) return null
     return res.json()

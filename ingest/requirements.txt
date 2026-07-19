@@ -11,3 +11,6 @@ numpy>=1.26,<3
 scikit-learn>=1.4,<2
 scipy>=1.11,<2
 lightgbm>=4.*
+
+# dev / tests only
+pytest>=8.*

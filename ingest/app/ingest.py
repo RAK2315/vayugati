@@ -1,6 +1,7 @@
 """One ingestion run: OpenAQ station readings + Open-Meteo weather -> Supabase."""
 
 import logging
+import time
 from datetime import datetime, timezone
 
 from . import aqi, config, db, open_meteo, openaq
@@ -94,6 +95,12 @@ def run() -> dict:
         if ward["lat"] is None or ward["lng"] is None:
             continue
         try:
+            # A brief pause between calls — hitting Open-Meteo for all
+            # configured wards back-to-back with zero delay produced real
+            # 429s from a real deployment (Render's shared egress IP), never
+            # reproduced by local/disposable-Postgres testing since that
+            # never made this many real sequential API calls.
+            time.sleep(0.5)
             w = open_meteo.get_current(ward["lat"], ward["lng"])
             db.upsert_weather(
                 {

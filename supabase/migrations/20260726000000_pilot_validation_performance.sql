@@ -1,0 +1,21 @@
+-- ============================================================
+-- pilot_validation_performance — additive migration (Phase 11)
+--
+-- One index, added because an actual EXPLAIN ANALYZE against a realistic
+-- Delhi pilot-scale synthetic dataset (13 wards, 11 stations, ~24k hourly
+-- readings) proved it necessary, not speculatively: the ingest service's
+-- own /health reading-freshness check
+-- (`select ts from readings order by ts desc limit 1`) — which queries
+-- ACROSS every station, not one — was doing a sequential scan (5.6ms at
+-- 24k rows; this only gets worse as real pilot data accumulates over
+-- months), because the only existing indexes on `readings` are
+-- `(station_id, ts)` composites, which don't help an unfiltered,
+-- cross-station ORDER BY ts. No other query in this codebase's
+-- performance review (incident queue, timeline, hypothesis ranking,
+-- dispatch queue, notification queue, system_health_summary) showed a
+-- seq scan at this data volume — see docs/PILOT_READINESS_REPORT.md's
+-- performance section for the full set of EXPLAIN ANALYZE results this
+-- migration is based on. Deliberately not adding any other index
+-- speculatively.
+-- ============================================================
+create index if not exists readings_ts_idx on readings (ts desc);

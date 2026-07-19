@@ -20,6 +20,20 @@ def get_wards() -> dict[str, dict]:
     return {r["name"]: r for r in rows}
 
 
+def get_wards_with_city() -> list[dict]:
+    """[{id, name, lat, lng, city_id}, ...] — for per-city forecasting/detection loops."""
+    return client().table("wards").select("id, name, lat, lng, city_id").execute().data
+
+
+def get_active_cities(city_code: str | None = None) -> list[dict]:
+    """Active city_config rows (optionally filtered to one city_code), each
+    with its own `config` jsonb (pollutant_priority, forecasting config, …)."""
+    q = client().table("city_config").select("id, city_code, name, pollutant_priority, config").eq("is_active", True)
+    if city_code:
+        q = q.eq("city_code", city_code)
+    return q.execute().data
+
+
 def get_station_by_ref(external_ref: str) -> dict | None:
     rows = (
         client()
@@ -59,12 +73,17 @@ def upsert_weather(row: dict) -> None:
 # ── history reads (for forecast + attribution) ───────────────────────────────
 
 def get_readings_history(hours: int = 24 * 30) -> list[dict]:
-    """Flattened readings joined to their ward: [{ts, ward_id, pm25, pm10, aqi}]."""
+    """Flattened readings joined to their ward: [{ts, ward_id, pm25, pm10, no2, aqi}].
+
+    no2 was added in Phase 8 (unified forecasting, plan §1's "keep NO2 as
+    optional/supporting") — additive to the returned dict, so the existing
+    attribution.py caller (which only reads pm25/wind_dir) is unaffected.
+    """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
     rows = (
         client()
         .table("readings")
-        .select("ts, pm25, pm10, aqi, stations(ward_id)")
+        .select("ts, pm25, pm10, no2, aqi, stations(ward_id)")
         .gte("ts", cutoff)
         .order("ts")
         .limit(50000)
@@ -78,7 +97,14 @@ def get_readings_history(hours: int = 24 * 30) -> list[dict]:
         if ward_id is None:
             continue
         out.append(
-            {"ts": r["ts"], "ward_id": ward_id, "pm25": r["pm25"], "pm10": r["pm10"], "aqi": r["aqi"]}
+            {
+                "ts": r["ts"],
+                "ward_id": ward_id,
+                "pm25": r["pm25"],
+                "pm10": r["pm10"],
+                "no2": r["no2"],
+                "aqi": r["aqi"],
+            }
         )
     return out
 
@@ -100,14 +126,56 @@ def get_weather_history(hours: int = 24 * 30) -> list[dict]:
 
 # ── forecast + attribution writes ────────────────────────────────────────────
 
-def replace_forecasts(ward_id: int, rows: list[dict]) -> None:
-    """Swap in a fresh forecast generation for a ward (delete old, insert new)."""
-    client().table("forecasts").delete().eq("ward_id", ward_id).execute()
+def replace_forecasts(ward_id: int, pollutant: str, rows: list[dict]) -> None:
+    """Swap in a fresh forecast generation for one ward+pollutant (delete old,
+    insert new). Scoped to `pollutant` since Phase 8: `forecasts` now holds
+    pm25/pm10/no2 rows for the same ward side by side — an unscoped delete
+    would wipe out every OTHER pollutant's current forecast for this ward."""
+    client().table("forecasts").delete().eq("ward_id", ward_id).eq("pollutant", pollutant).execute()
     if rows:
         client().table("forecasts").insert(rows).execute()
+
+
+def insert_forecast_run(row: dict) -> int:
+    """Insert one forecast_runs row (the validation record for a generation). Returns its id."""
+    return client().table("forecast_runs").insert(row).execute().data[0]["id"]
 
 
 def replace_attribution(ward_id: int, row: dict) -> None:
     """Keep one current attribution per ward."""
     client().table("attributions").delete().eq("ward_id", ward_id).execute()
     client().table("attributions").insert(row).execute()
+
+
+# ── notifications (Phase 9) ──────────────────────────────────────────────────
+
+def get_pending_notifications(max_retries: int) -> list[dict]:
+    """Notifications still eligible for a delivery attempt (status='pending',
+    retry_count within budget). `notifications.py` owns what happens next."""
+    return (
+        client()
+        .table("notifications")
+        .select("id, channel, recipient_contact, message_body, template_key, retry_count")
+        .eq("status", "pending")
+        .lte("retry_count", max_retries)
+        .execute()
+        .data
+    )
+
+
+def mark_notification_sent(notification_id: int, sent_at_iso: str) -> None:
+    client().table("notifications").update(
+        {"status": "sent", "sent_at": sent_at_iso}
+    ).eq("id", notification_id).execute()
+
+
+def mark_notification_retry_or_failed(
+    notification_id: int, failure_reason: str, retry_count: int, terminal: bool
+) -> None:
+    client().table("notifications").update(
+        {
+            "status": "failed" if terminal else "pending",
+            "failure_reason": failure_reason,
+            "retry_count": retry_count,
+        }
+    ).eq("id", notification_id).execute()

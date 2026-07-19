@@ -3,8 +3,12 @@ import { AqiGauge } from '../components/AqiBadge'
 import AppShell from '../components/AppShell'
 import ForecastChart from '../components/ForecastChart'
 import MapView from '../components/MapView'
+import CitizenIncidentCard from '../components/CitizenIncidentCard'
+import CitizenVerificationCard from '../components/CitizenVerificationCard'
 import { Card, CardHeader, Skeleton } from '../components/ui'
 import { useAuth } from '../lib/auth'
+import { citizenSafeErrorMessage } from '../lib/errors'
+import { linkReportToIncident } from '../lib/incidents'
 import {
   classifyReport,
   fetchCurrentWeather,
@@ -104,12 +108,34 @@ export default function CitizenView() {
         wardId: profile.wardId, reporterId: session.user.id,
         description: description.trim(), lat: coords?.lat ?? null, lng: coords?.lng ?? null, photoUrl,
       })
-      classifyReport({ reportId: id, description: description.trim(), wardName: profile.wardName ?? '', photoUrl })
+
+      // Classification writes ai_category onto the report, and the matching rule
+      // reads it — so this is awaited rather than fire-and-forget. It is still
+      // best-effort: it times out and returns null if the ingest service is
+      // down, and the report then links on ward + location + recency alone.
+      await classifyReport({ reportId: id, description: description.trim(), wardName: profile.wardName ?? '', photoUrl })
+
+      // Match to an existing nearby incident, or open a new one. The report is
+      // already saved at this point, so a failure here must not read as a failed
+      // submission — it is reported separately and is recoverable (command staff
+      // can link it, and re-running the rule is a no-op on a linked report).
+      let linked = true
+      try {
+        await linkReportToIncident(id)
+      } catch (e) {
+        linked = false
+        console.error('Report saved but not linked to an incident:', e)
+      }
+
       resetForm()
-      setSubmitMsg('Report submitted — track it below.')
+      setSubmitMsg(
+        linked
+          ? 'Report submitted and added to an incident — track it below.'
+          : 'Report submitted. We could not attach it to an incident yet; the team will review it.',
+      )
       fetchMyReports(session.user.id).then(setMyReports)
     } catch (e: unknown) {
-      setSubmitMsg(e instanceof Error ? e.message : 'Submission failed.')
+      setSubmitMsg(citizenSafeErrorMessage(e, 'Submission failed.'))
     } finally {
       setSubmitting(false)
     }
@@ -210,6 +236,9 @@ export default function CitizenView() {
           {submitMsg && <p className="border-t border-slate-100 bg-green-50/50 px-5 py-2 text-xs text-green-700">{submitMsg}</p>}
         </Card>
 
+        {/* Targeted verification requests — shown only when safe and relevant */}
+        <CitizenVerificationCard />
+
         {/* My reports */}
         {myReports.length > 0 && (
           <Card>
@@ -228,6 +257,17 @@ export default function CitizenView() {
                     <span className={`flex-shrink-0 rounded-lg px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[r.status]?.cls ?? 'bg-slate-100 text-slate-600'}`}>
                       {STATUS_STYLE[r.status]?.label ?? r.status}
                     </span>
+                  </div>
+                  {/* Where this report actually went. A report with no incident
+                      says so plainly rather than looking silently ignored. */}
+                  <div className="mt-2">
+                    {r.incident_id != null ? (
+                      <CitizenIncidentCard incidentId={r.incident_id} />
+                    ) : (
+                      <p className="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-500">
+                        Not yet attached to an incident — the team will review it.
+                      </p>
+                    )}
                   </div>
                 </li>
               ))}

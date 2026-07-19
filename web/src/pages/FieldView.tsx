@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import AqiBadge from '../components/AqiBadge'
 import AppShell from '../components/AppShell'
 import AttributionArrow from '../components/AttributionArrow'
@@ -6,6 +7,7 @@ import ForecastChart from '../components/ForecastChart'
 import MapView from '../components/MapView'
 import { Card, CardHeader, EmptyState, Skeleton, Stat } from '../components/ui'
 import { useAuth } from '../lib/auth'
+import { listMissionsForUser } from '../lib/incidents'
 import {
   fetchAttribution,
   fetchForecast,
@@ -19,10 +21,11 @@ import {
   type ForecastPoint,
   type Reading,
   type Report,
+  type ReportStatus,
   type WardRollup,
 } from '../lib/data'
 
-const NEXT_STATUS: Record<string, { label: string; next: string; color: string }> = {
+const NEXT_STATUS: Record<string, { label: string; next: ReportStatus; color: string }> = {
   submitted: { label: 'Verify',  next: 'verified', color: 'bg-blue-600 hover:bg-blue-700'    },
   verified:  { label: 'Act',     next: 'acted',    color: 'bg-orange-500 hover:bg-orange-600' },
   assigned:  { label: 'Act',     next: 'acted',    color: 'bg-orange-500 hover:bg-orange-600' },
@@ -37,6 +40,7 @@ function timeAgo(ts: string | null): string {
 
 export default function FieldView() {
   const { profile, session } = useAuth()
+  const [missionCount, setMissionCount] = useState<number | null>(null)
   const [reading, setReading] = useState<Reading | null>(null)
   const [forecast, setForecast] = useState<ForecastPoint[]>([])
   const [attribution, setAttribution] = useState<Attribution | null>(null)
@@ -57,6 +61,27 @@ export default function FieldView() {
       setReading(r); setForecast(fc); setAttribution(attr); setReports(rpts); setRollup(rup); setLoading(false)
     })
   }, [profile?.wardId])
+
+  // Evidence missions live on their own screen; surface the count here so the
+  // officer's home still tells them work is waiting. Best-effort: on failure the
+  // banner stays hidden rather than breaking the ward view.
+  useEffect(() => {
+    if (!session) return
+    let cancelled = false
+    listMissionsForUser(session.user.id)
+      .then((ms) => {
+        if (cancelled) return
+        setMissionCount(
+          ms.filter((m) => m.mission.status !== 'completed' && m.mission.status !== 'cancelled').length,
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setMissionCount(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [session])
 
   const peakExcess = forecast.reduce<number | null>(
     (max, p) => (p.local_excess != null && (max == null || p.local_excess > max) ? p.local_excess : max),
@@ -88,6 +113,26 @@ export default function FieldView() {
   return (
     <AppShell subtitle="Field Ops">
       <div className="mx-auto w-full max-w-2xl flex-1 space-y-3 overflow-y-auto p-4">
+        {/* Evidence missions (Phase 3) — a distinct task type from the report
+            action queue below, so it gets its own entry point rather than being
+            mixed into a single undifferentiated list. */}
+        {missionCount != null && missionCount > 0 && (
+          <Link
+            to="/missions"
+            className="focus-ring flex items-center gap-3 rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 transition hover:bg-sky-100"
+          >
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-sky-200 text-base">
+              🔍
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-ink-800">
+                {missionCount} evidence mission{missionCount > 1 ? 's' : ''} assigned to you
+              </span>
+              <span className="block text-xs text-ink-500">Checklist + geotagged proof · open them →</span>
+            </span>
+          </Link>
+        )}
+
         {/* AQI + roll-up row */}
         <div className="grid gap-3 sm:grid-cols-2">
           <Card className="flex items-center gap-4 p-4">
