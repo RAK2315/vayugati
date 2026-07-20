@@ -22,6 +22,10 @@ export const LAYER_ORDER: MapLayerKey[] = [
 ]
 
 export const LAYER_META: Record<MapLayerKey, { label: string; available: boolean; note: string }> = {
+  // `available` here is the no-data default (no boundary geometry captured
+  // yet). MapPage.tsx passes `wardBoundariesAvailable` once it knows
+  // whether Supabase actually returned any `wards.boundary` rows (Phase 2
+  // import) - real Supabase data decides this, never a hardcoded flip.
   wardBoundaries: {
     label: 'Ward boundaries',
     available: false,
@@ -87,9 +91,14 @@ function Toggle({ on, disabled }: { on: boolean; disabled: boolean }) {
 export default function MapLayerControl({
   layers,
   onToggle,
+  wardBoundariesAvailable = false,
 }: {
   layers: Record<MapLayerKey, boolean>
   onToggle: (key: MapLayerKey) => void
+  /** True once Supabase has returned at least one real `wards.boundary`
+   *  row (see lib/data.ts's fetchAllWardBoundaries) - flips the otherwise
+   *  permanently-disabled "Ward boundaries" toggle on. */
+  wardBoundariesAvailable?: boolean
 }) {
   return (
     <div className="w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-card">
@@ -99,7 +108,10 @@ export default function MapLayerControl({
       </div>
       <ul>
         {LAYER_ORDER.map((key) => {
-          const meta = LAYER_META[key]
+          const meta =
+            key === 'wardBoundaries' && wardBoundariesAvailable
+              ? { ...LAYER_META[key], available: true, note: 'Real MCD ward boundaries (Phase 2 import).' }
+              : LAYER_META[key]
           const on = layers[key] && meta.available
           return (
             <li key={key}>

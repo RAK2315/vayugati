@@ -78,9 +78,17 @@ export async function fetchCurrentWeather(wardId: number): Promise<Weather | nul
 }
 
 export async function fetchAllWardsAqi(): Promise<WardSummary[]> {
+  // is_hotspot=true scopes this to the 13 seeded, monitored hotspot wards -
+  // every existing caller (Overview, Incidents' ward filter, the admin
+  // Registry form) expects exactly that set. Phase 2 (delhi-ward-import-
+  // report.md) added up to 250 more municipal-boundary-only wards with
+  // is_hotspot=false and no station/AQI data; they're deliberately excluded
+  // here and served instead by fetchAllWardBoundaries() below, so this
+  // function's callers see no change in behaviour.
   const { data: wards } = await supabase
     .from('wards')
     .select('id, name, dominant_source, lat, lng')
+    .eq('is_hotspot', true)
     .order('name')
   if (!wards) return []
 
@@ -97,6 +105,36 @@ export async function fetchAllWardsAqi(): Promise<WardSummary[]> {
       }
     }),
   )
+}
+
+export interface WardBoundary {
+  id: number
+  name: string
+  wardNumber: number | null
+  geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon
+}
+
+/** Real ward boundary polygons for the Map's ward-boundary layer - covers
+ *  every ward with real captured geometry (the Phase 2 municipal import,
+ *  and any of the 13 hotspot wards if they're ever given one too), not
+ *  just the monitored hotspot set fetchAllWardsAqi() is scoped to. Never
+ *  a hardcoded polygon - if Supabase has no boundary data yet, this
+ *  returns an empty array and the layer stays disabled (see MapPage.tsx). */
+export async function fetchAllWardBoundaries(): Promise<WardBoundary[]> {
+  const { data } = await supabase
+    .from('wards')
+    .select('id, name, ward_number, boundary')
+    .not('boundary', 'is', null)
+    .order('ward_number', { ascending: true, nullsFirst: false })
+  if (!data) return []
+  return data
+    .filter((w): w is typeof w & { boundary: NonNullable<typeof w.boundary> } => w.boundary != null)
+    .map((w) => ({
+      id: w.id,
+      name: w.name,
+      wardNumber: w.ward_number,
+      geometry: w.boundary as unknown as GeoJSON.Polygon | GeoJSON.MultiPolygon,
+    }))
 }
 
 export interface StationMarker {

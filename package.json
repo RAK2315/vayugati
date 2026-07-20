@@ -1,5 +1,17 @@
 {
+  "private": true,
+  "type": "module",
   "dependencies": {
     "supabase": "^2.109.1"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.49.0",
+    "@types/node": "^22.20.1",
+    "dotenv": "^16.4.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "import:delhi-wards": "tsx scripts/import-delhi-wards.ts"
   }
 }

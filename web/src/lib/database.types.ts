@@ -2175,7 +2175,10 @@ export type Database = {
           is_hotspot: boolean
           lat: number | null
           lng: number | null
+          metadata: Json
           name: string
+          ward_number: number | null
+          zone: string | null
         }
         Insert: {
           boundary?: Json | null
@@ -2189,7 +2192,10 @@ export type Database = {
           is_hotspot?: boolean
           lat?: number | null
           lng?: number | null
+          metadata?: Json
           name: string
+          ward_number?: number | null
+          zone?: string | null
         }
         Update: {
           boundary?: Json | null
@@ -2203,7 +2209,10 @@ export type Database = {
           is_hotspot?: boolean
           lat?: number | null
           lng?: number | null
+          metadata?: Json
           name?: string
+          ward_number?: number | null
+          zone?: string | null
         }
         Relationships: [
           {

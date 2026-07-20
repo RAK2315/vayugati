@@ -9,6 +9,7 @@ import MapPageHeader from '../components/map/MapPageHeader'
 import MapToolbar from '../components/map/MapToolbar'
 import SelectedIncidentPanel from '../components/map/SelectedIncidentPanel'
 import SelectedStationPanel, { type SelectedStation } from '../components/map/SelectedStationPanel'
+import SelectedWardBoundaryPanel from '../components/map/SelectedWardBoundaryPanel'
 import SelectedWardPanel from '../components/map/SelectedWardPanel'
 import SpatialSummaryPanel from '../components/map/SpatialSummaryPanel'
 import { DEFAULT_BASEMAP_MODE, resolveStyleUrl, type BasemapMode } from '../lib/basemaps'
@@ -16,10 +17,12 @@ import {
   fetchAllForecasts,
   fetchAllOpenReports,
   fetchAllStationsWithReadings,
+  fetchAllWardBoundaries,
   fetchAllWardsAqi,
   fetchAttribution,
   type Report,
   type StationMarker,
+  type WardBoundary,
   type WardForecastSummary,
   type WardSummary,
 } from '../lib/data'
@@ -45,7 +48,12 @@ import { rollupStationHealth, severeWardsWithin, tallySourceMix } from '../lib/o
 import { fetchStationHealth, type StationHealthRow } from '../lib/ops'
 import { useAsync } from '../lib/useAsync'
 
-type Selection = { kind: 'ward'; id: number } | { kind: 'station'; id: number } | { kind: 'incident'; id: number } | null
+type Selection =
+  | { kind: 'ward'; id: number }
+  | { kind: 'station'; id: number }
+  | { kind: 'incident'; id: number }
+  | { kind: 'wardBoundary'; id: number; name: string; wardNumber: number | null }
+  | null
 
 // Stable module-level fallback for state.data's pre-load shape. An inline
 // `?? [[], [], ...]` literal would allocate a NEW array/tuple every render
@@ -60,7 +68,8 @@ const EMPTY_DATA: [
   Report[],
   StationHealthRow[],
   ActiveTaskDispatchesPage,
-] = [[], [], new Map(), [], [], [], { rows: [], totalCount: 0, hasMore: false }]
+  WardBoundary[],
+] = [[], [], new Map(), [], [], [], { rows: [], totalCount: 0, hasMore: false }, []]
 
 function popup(title: string, lines: string[]): string {
   return (
@@ -95,11 +104,13 @@ export default function MapPage() {
         fetchAllOpenReports(),
         fetchStationHealth(),
         listActiveTaskDispatches({ offset: 0, pageSize: 200 }),
+        fetchAllWardBoundaries(),
       ]),
     [],
   )
 
-  const [wards, stations, forecasts, incidents, reports, stationHealth, dispatchPage] = state.data ?? EMPTY_DATA
+  const [wards, stations, forecasts, incidents, reports, stationHealth, dispatchPage, wardBoundaries] =
+    state.data ?? EMPTY_DATA
 
   const leadingSource = useAsync(() => listLeadingSourceCategories(incidents.map((i) => i.id)), [incidents])
   const leadingSourceById = leadingSource.data ?? new Map()
@@ -262,6 +273,28 @@ export default function MapPage() {
     else if (kind === 'incident') setSelection({ kind: 'incident', id })
   }, [])
 
+  // Real Supabase boundary rows only (see lib/data.ts's fetchAllWardBoundaries)
+  // - an empty array here means the layer control correctly shows the
+  // toggle as unavailable (MapLayerControl's wardBoundariesAvailable prop),
+  // never a placeholder/hardcoded shape.
+  const wardBoundaryCollection = useMemo<
+    GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, { id: number; name: string; wardNumber: number | null }>
+  >(
+    () => ({
+      type: 'FeatureCollection',
+      features: wardBoundaries.map((w) => ({
+        type: 'Feature',
+        properties: { id: w.id, name: w.name, wardNumber: w.wardNumber },
+        geometry: w.geometry,
+      })),
+    }),
+    [wardBoundaries],
+  )
+  const wardBoundariesAvailable = wardBoundaries.length > 0
+  const handleBoundaryClick = useCallback((ward: { id: number; name: string; wardNumber: number | null }) => {
+    setSelection({ kind: 'wardBoundary', id: ward.id, name: ward.name, wardNumber: ward.wardNumber })
+  }, [])
+
   const selectedWard = selection?.kind === 'ward' ? wards.find((w) => w.id === selection.id) : undefined
   const selectedIncident: Incident | undefined =
     selection?.kind === 'incident' ? incidents.find((i) => i.id === selection.id) : undefined
@@ -325,9 +358,17 @@ export default function MapPage() {
                   showScaleBar
                   onMarkerClick={handleMarkerClick}
                   fitBoundsTo={fitBoundsTo}
+                  wardBoundaries={wardBoundaryCollection}
+                  showWardBoundaries={layers.wardBoundaries && wardBoundariesAvailable}
+                  selectedBoundaryId={selection?.kind === 'wardBoundary' ? selection.id : null}
+                  onBoundaryClick={handleBoundaryClick}
                 />
                 <div className="absolute bottom-14 left-3 top-3 z-10 flex flex-col gap-2 overflow-y-auto">
-                  <MapLayerControl layers={layers} onToggle={(key: MapLayerKey) => setLayers((l) => ({ ...l, [key]: !l[key] }))} />
+                  <MapLayerControl
+                    layers={layers}
+                    onToggle={(key: MapLayerKey) => setLayers((l) => ({ ...l, [key]: !l[key] }))}
+                    wardBoundariesAvailable={wardBoundariesAvailable}
+                  />
                   <MapLegend sourceAttributionOn={layers.sourceAttribution} />
                 </div>
                 <BasemapSwitcher mode={basemap} onChange={setBasemap} />
@@ -359,6 +400,12 @@ export default function MapPage() {
                   <SelectedStationPanel station={selectedStation} pollutant={pollutant} onClose={() => setSelection(null)} />
                 ) : selectedIncident ? (
                   <SelectedIncidentPanel incident={selectedIncident} onClose={() => setSelection(null)} />
+                ) : selection?.kind === 'wardBoundary' ? (
+                  <SelectedWardBoundaryPanel
+                    name={selection.name}
+                    wardNumber={selection.wardNumber}
+                    onClose={() => setSelection(null)}
+                  />
                 ) : (
                   <SpatialSummaryPanel
                     wardsShown={wardMarkers.length}
