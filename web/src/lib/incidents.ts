@@ -18,6 +18,7 @@ import type { Database } from './database.types'
 import { MATCHING_RULE, sourceCategoryLabel } from './incidentRules'
 import type {
   ActionWorkflowStatus,
+  ChecklistItem,
   CitizenActionAnswer,
   IncidentClassification,
   IncidentStatus,
@@ -2326,21 +2327,44 @@ export async function listMyTaskDispatches(): Promise<TaskDispatchRow[]> {
 
 export interface ActiveTaskDispatch extends TaskDispatchRow {
   incident_summary: string | null
+  /** The linked incident's own severity — reused as this dispatch's
+   *  "priority" (same vocabulary/tone already established for incidents,
+   *  rather than inventing a second priority scale). Null if the incident
+   *  couldn't be joined or has no severity recorded. */
+  incident_severity: string | null
   ward_name: string | null
+  /** actions.priority_score — a real ranking score already computed at
+   *  dispatch time, previously never surfaced in any UI. Shown as a
+   *  secondary detail, not the primary priority signal (see incident_severity). */
+  action_priority_score: number | null
+  /** actions.checklist_snapshot — the real required-evidence checklist
+   *  captured from the playbook at dispatch time. Null/empty means no
+   *  checklist was attached, not "unknown" - shown as-is, never invented. */
+  action_checklist_snapshot: ChecklistItem[] | null
 }
 
-const ACTIVE_DISPATCH_SELECT = '*, incidents(summary, wards(name))'
+const ACTIVE_DISPATCH_SELECT =
+  '*, incidents(summary, severity, wards(name)), actions(priority_score, checklist_snapshot)'
 
-function shapeActiveDispatch(
-  row: TaskDispatchRow & { incidents?: { summary: string | null; wards?: { name: string } | { name: string }[] | null } | null },
-): ActiveTaskDispatch {
+type ActiveDispatchJoinRow = TaskDispatchRow & {
+  incidents?: { summary: string | null; severity: string | null; wards?: { name: string } | { name: string }[] | null } | null
+  actions?: { priority_score: number | null; checklist_snapshot: unknown } | null
+}
+
+function shapeActiveDispatch(row: ActiveDispatchJoinRow): ActiveTaskDispatch {
   const incident = row.incidents
   const ward = incident?.wards
-  const { incidents: _incidents, ...rest } = row
+  const action = row.actions
+  const { incidents: _incidents, actions: _actions, ...rest } = row
   return {
     ...rest,
     incident_summary: incident?.summary ?? null,
+    incident_severity: incident?.severity ?? null,
     ward_name: Array.isArray(ward) ? (ward[0]?.name ?? null) : (ward?.name ?? null),
+    action_priority_score: action?.priority_score ?? null,
+    // checklist_snapshot is stored as jsonb - the same runtime shape
+    // ops.ts's own playbook editor already assumes when writing it.
+    action_checklist_snapshot: (action?.checklist_snapshot as ChecklistItem[] | null) ?? null,
   }
 }
 
@@ -2372,6 +2396,55 @@ export async function listActiveTaskDispatches(opts: { offset: number; pageSize?
   const rows = (data ?? []).map((r) => shapeActiveDispatch(r as never))
   const totalCount = count ?? rows.length
   return { rows, totalCount, hasMore: opts.offset + rows.length < totalCount }
+}
+
+/** Every dispatch (any status, including completed/cancelled/rejected)
+ *  created within the last `sinceDays` days — the Analytics page's own
+ *  data source for agency performance and time-to-action, distinct from
+ *  listActiveTaskDispatches (which deliberately excludes finished work).
+ *  Same real columns, same join, same RLS (commander/admin read every
+ *  row) - just a wider status/time filter. Capped at 2000 rows: enough
+ *  for a real rollup without an unbounded fetch. */
+export async function listTaskDispatchesForAnalytics(sinceDays: number): Promise<ActiveTaskDispatch[]> {
+  const cutoff = new Date(Date.now() - sinceDays * 24 * 3_600_000).toISOString()
+  const { data, error } = await supabase
+    .from('task_dispatches')
+    .select(ACTIVE_DISPATCH_SELECT)
+    .eq('is_current', true)
+    .gte('created_at', cutoff)
+    .order('created_at', { ascending: false })
+    .limit(2000)
+  if (error) fail('Could not load dispatch history', error)
+  return (data ?? []).map((r) => shapeActiveDispatch(r as never))
+}
+
+/** Real submitted evidence for one action — the Tasks detail panel's
+ *  "evidence required vs submitted" comparison, fetched on demand (only
+ *  once a task is actually selected), not bulk-joined onto every row. */
+export async function listActionEvidenceForAction(actionId: number): Promise<ActionEvidenceRow[]> {
+  const { data, error } = await supabase
+    .from('action_evidence')
+    .select('*')
+    .eq('action_id', actionId)
+    .order('captured_at', { ascending: true })
+  if (error) fail('Could not load evidence for this action', error)
+  return data ?? []
+}
+
+/** The impact evaluation for one action, if a verification has been
+ *  recorded - the Tasks detail panel's honest "did it work" fact. Null
+ *  (not an empty object) when no evaluation exists yet, so the UI can say
+ *  "not verified yet" rather than showing blank fields. */
+export async function getImpactEvaluationForAction(actionId: number): Promise<ImpactEvaluationRow | null> {
+  const { data, error } = await supabase
+    .from('impact_evaluations')
+    .select('*')
+    .eq('action_id', actionId)
+    .order('evaluated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) fail('Could not load the impact evaluation for this action', error)
+  return data ?? null
 }
 
 /** Notifications queued/sent for one dispatch — the Operations panel's

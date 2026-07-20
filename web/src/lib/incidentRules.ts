@@ -620,6 +620,23 @@ export const IMPACT_OUTCOME_LABEL: Record<ImpactOutcome, string> = {
   inconclusive: 'Inconclusive',
 }
 
+/** The full real `incident_outcome` DB enum (7 values) - wider than
+ *  ImpactOutcome, which only covers the 4 outcomes previewImpactOutcome can
+ *  predict client-side before submission. impact_evaluations.outcome can
+ *  also be source_disproved/completed_no_change/recurred, set through other
+ *  paths (citizen recurrence reports, source-verification flow) that never
+ *  go through the preview function - anywhere displaying a real stored
+ *  outcome value needs this map, not the narrower one. */
+export const INCIDENT_OUTCOME_LABEL: Record<Database['public']['Enums']['incident_outcome'], string> = {
+  effective: 'Effective',
+  partly_effective: 'Partly effective',
+  ineffective: 'Ineffective',
+  inconclusive: 'Inconclusive',
+  source_disproved: 'Source disproved',
+  completed_no_change: 'Completed, no change',
+  recurred: 'Recurred',
+}
+
 /** Minimum data completeness (0–1) below which a result is inconclusive
  *  regardless of the apparent change. Mirrors `record_impact_evaluation` in SQL. */
 export const MIN_COMPLETENESS_FOR_RESULT = 0.5

@@ -1,67 +1,85 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { Activity, Gauge, MapPin, PlugZap, RefreshCw, TriangleAlert, Wind } from 'lucide-react'
 import AppShell from '../components/AppShell'
-import { Card, CardHeader, EmptyState, ErrorState, Skeleton, StaleBadge } from '../components/ui'
+import { ErrorState, Skeleton, StaleBadge } from '../components/ui'
+import KpiStrip, { type KpiItem } from '../components/overview/KpiStrip'
+import SensorDetailPanel from '../components/sensors/SensorDetailPanel'
+import SensorFilterBar, { ALL, type SensorFilters } from '../components/sensors/SensorFilterBar'
+import SensorHealthTable, { type SensorRow } from '../components/sensors/SensorHealthTable'
+import { sensorStatus, type SensorStatus } from '../components/sensors/SensorStatusBadge'
 import { useAuth } from '../lib/auth'
+import { fetchAllStationsWithReadings } from '../lib/data'
+import { listIncidents } from '../lib/incidents'
 import { fetchStationHealth, setStationActive, type StationHealthRow } from '../lib/ops'
 import { useAsync } from '../lib/useAsync'
 
 /**
- * Sensors — per-station data-quality view (one of the 5 commander nav items
- * that were previously permanently disabled "coming soon" placeholders).
- *
- * Built entirely from real, already-existing data: stations.is_active/
- * sensor_type (Phase 6/10), and each station's own latest readings.ts —
- * station-level freshness has never been surfaced anywhere in this app
- * before (only a city-wide "any reading at all" check existed), but it's
- * computed from the exact same readings table, not a new data source.
- *
- * Deliberately does NOT claim to show "resolved OpenAQ id" status — that's
- * a property of ingest/stations.yaml (a config file), not any database
- * column, so there is no real way for the frontend to query it honestly.
+ * Sensors — station health and data-reliability console (Phase redesign,
+ * matching the Overview/Incidents/Map/Tasks visual language). Merges two
+ * already-existing, already-correct fetches client-side (fetchStationHealth
+ * for freshness/activation state, fetchAllStationsWithReadings for
+ * coordinates + latest pollutant values) rather than adding a new query -
+ * both already read from the same stations/readings tables. "Linked
+ * incidents" is a real spatial join (open incidents in the same ward),
+ * not a fabricated relationship - stations have no incident_id of their own.
  */
 
-function fmtAge(minutes: number | null): string {
-  if (minutes == null) return 'No readings yet'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 48) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
-
-function StationRow({ station, onToggle, busy }: { station: StationHealthRow; onToggle: () => void; busy: boolean }) {
-  return (
-    <li className="flex items-center justify-between gap-3 px-4 py-2.5">
-      <div className="min-w-0">
-        <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
-          {station.name}
-          {station.is_stale && <StaleBadge label={station.latest_reading_at ? 'Stale' : 'No data'} />}
-        </p>
-        <p className="mt-0.5 truncate text-xs text-slate-400">
-          {station.ward_name ?? 'No ward'} · {station.sensor_type} · {fmtAge(station.latest_reading_age_minutes)}
-        </p>
-      </div>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={onToggle}
-        className={`focus-ring flex-shrink-0 rounded-full px-3 py-1 text-xs font-bold uppercase transition disabled:opacity-50 ${
-          station.is_active ? 'bg-status-success/10 text-status-success' : 'bg-slate-100 text-slate-500'
-        }`}
-      >
-        {station.is_active ? 'Active' : 'Inactive'}
-      </button>
-    </li>
-  )
-}
+const DEFAULT_FILTERS: SensorFilters = { status: ALL, ward: ALL, sensorType: ALL }
 
 export default function SensorsView() {
   const { session } = useAuth()
-  const state = useAsync(fetchStationHealth, [])
-  const stations = state.data ?? []
-  const staleCount = stations.filter((s) => s.is_stale).length
+  const [filters, setFilters] = useState<SensorFilters>(DEFAULT_FILTERS)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
 
-  const toggle = async (station: StationHealthRow) => {
+  const state = useAsync(() => Promise.all([fetchStationHealth(), fetchAllStationsWithReadings()]), [])
+  const incidentsState = useAsync(() => listIncidents({ excludeClosed: true, limit: 1000 }), [])
+  const openIncidents = incidentsState.data ?? []
+
+  const rows: SensorRow[] = useMemo(() => {
+    if (!state.data) return []
+    const [health, readings] = state.data
+    const readingByStationId = new Map(readings.map((r) => [r.id, r]))
+    const incidentCountByWard = new Map<number, number>()
+    for (const i of openIncidents) {
+      if (i.ward_id == null) continue
+      incidentCountByWard.set(i.ward_id, (incidentCountByWard.get(i.ward_id) ?? 0) + 1)
+    }
+    return health.map((s: StationHealthRow) => {
+      const r = readingByStationId.get(s.id)
+      return {
+        ...s,
+        lat: r?.lat ?? null,
+        lng: r?.lng ?? null,
+        aqi: r?.aqi ?? null,
+        pm25: r?.pm25 ?? null,
+        pm10: r?.pm10 ?? null,
+        no2: r?.no2 ?? null,
+        linkedIncidentCount: s.ward_id != null ? (incidentCountByWard.get(s.ward_id) ?? 0) : 0,
+      }
+    })
+  }, [state.data, openIncidents])
+
+  const statuses = useMemo(() => [...new Set(rows.map((r) => sensorStatus(r)))].sort() as SensorStatus[], [rows])
+  const wards = useMemo(() => [...new Set(rows.map((r) => r.ward_name).filter((w): w is string => w != null))].sort(), [rows])
+  const sensorTypes = useMemo(() => [...new Set(rows.map((r) => r.sensor_type))].sort(), [rows])
+
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((r) => {
+        if (filters.status !== ALL && sensorStatus(r) !== filters.status) return false
+        if (filters.ward !== ALL && r.ward_name !== filters.ward) return false
+        if (filters.sensorType !== ALL && r.sensor_type !== filters.sensorType) return false
+        return true
+      }),
+    [rows, filters],
+  )
+
+  const isFiltered = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS)
+  const selected = selectedId != null ? rows.find((r) => r.id === selectedId) : undefined
+  const selectedWardIncidents = selected ? openIncidents.filter((i) => i.ward_id === selected.ward_id) : []
+
+  const toggle = async (station: SensorRow) => {
     if (!session) return
     setBusyId(station.id)
     try {
@@ -72,45 +90,103 @@ export default function SensorsView() {
     }
   }
 
+  const kpis: KpiItem[] | null = useMemo(() => {
+    if (state.loading || rows.length === 0) return rows.length === 0 && !state.loading ? [] : null
+    const active = rows.filter((r) => r.is_active)
+    const stale = rows.filter((r) => sensorStatus(r) === 'stale')
+    const noData = rows.filter((r) => sensorStatus(r) === 'no_data')
+    const offline = rows.filter((r) => sensorStatus(r) === 'offline')
+    const ageSamples = active.map((r) => r.latest_reading_age_minutes).filter((m): m is number => m != null)
+    const avgAge = ageSamples.length ? Math.round(ageSamples.reduce((s, m) => s + m, 0) / ageSamples.length) : null
+    const pollutantTotal = rows.reduce(
+      (sum, r) => sum + (['aqi', 'pm25', 'pm10', 'no2'] as const).filter((k) => r[k] != null).length,
+      0,
+    )
+    const pollutantPct = rows.length > 0 ? Math.round((pollutantTotal / (rows.length * 4)) * 100) : null
+
+    return [
+      { key: 'total', icon: Gauge, label: 'Total stations', value: rows.length, tone: 'neutral' },
+      { key: 'active', icon: Activity, label: 'Active stations', value: active.length, tone: 'success' },
+      { key: 'stale', icon: TriangleAlert, label: 'Stale stations', value: stale.length, tone: stale.length > 0 ? 'warning' : 'success' },
+      {
+        key: 'offlineNoData',
+        icon: PlugZap,
+        label: 'Offline / no data',
+        value: offline.length + noData.length,
+        sublabel: `${offline.length} offline · ${noData.length} never reported`,
+        tone: offline.length + noData.length > 0 ? 'critical' : 'success',
+      },
+      { key: 'avgAge', icon: Wind, label: 'Avg. last-seen delay', value: avgAge != null ? `${avgAge}m` : 'No sample', tone: 'neutral' },
+      { key: 'coverage', icon: Gauge, label: 'Pollutant coverage', value: pollutantPct != null ? `${pollutantPct}%` : '—', tone: 'info' },
+    ]
+  }, [state.loading, rows])
+
   return (
     <AppShell subtitle="Sensors">
-      <div className="mx-auto w-full max-w-3xl flex-1 space-y-3 overflow-y-auto bg-slate-50 p-3 sm:p-4">
-        <Card>
-          <CardHeader
-            title="Sensors"
-            subtitle={
-              stations.length > 0
-                ? `${stations.length} station(s) configured · ${staleCount} stale or without recent data`
-                : 'Station-level data quality'
-            }
-            right={
-              <button
-                type="button"
-                onClick={() => state.refresh()}
-                className="focus-ring rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Refresh
-              </button>
-            }
-          />
-          {state.loading ? (
-            <div className="space-y-2 p-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : state.error ? (
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden bg-slate-50 p-3 sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
+          <div>
+            <h1 className="text-base font-bold text-slate-900">Sensors</h1>
+            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+              <MapPin className="h-3 w-3" aria-hidden />
+              Delhi City Pack
+              {state.stale && <StaleBadge />}
+            </p>
+            <p className="mt-1 max-w-xl text-xs text-slate-400">
+              Monitors CAAQMS/station freshness and reliability - the data foundation every other page depends on.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              state.refresh()
+              incidentsState.refresh()
+            }}
+            disabled={state.refreshing}
+            className="focus-ring flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${state.refreshing ? 'animate-spin' : ''}`} aria-hidden />
+            Refresh
+          </button>
+        </div>
+
+        {state.loading ? (
+          <Skeleton className="h-20 w-full rounded-xl" />
+        ) : state.error ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
             <ErrorState message={state.error} onRetry={() => state.refresh()} />
-          ) : stations.length === 0 ? (
-            <EmptyState icon="◈">No stations configured yet.</EmptyState>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {stations.map((s) => (
-                <StationRow key={s.id} station={s} onToggle={() => toggle(s)} busy={busyId === s.id} />
-              ))}
-            </ul>
+          </div>
+        ) : (
+          kpis && kpis.length > 0 && <KpiStrip items={kpis} />
+        )}
+
+        {!state.loading && !state.error && rows.length > 0 && (
+          <SensorFilterBar filters={filters} onChange={setFilters} statuses={statuses} wards={wards} sensorTypes={sensorTypes} />
+        )}
+
+        <div className="flex min-h-0 flex-1 gap-3">
+          <SensorHealthTable
+            rows={filteredRows}
+            totalCount={rows.length}
+            loading={state.loading}
+            error={state.error}
+            onRetry={() => state.refresh()}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            isFiltered={isFiltered}
+          />
+          {selected && (
+            <div className="w-80 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+              <SensorDetailPanel
+                station={selected}
+                linkedIncidents={selectedWardIncidents}
+                onToggleActive={() => toggle(selected)}
+                toggleBusy={busyId === selected.id}
+                onClose={() => setSelectedId(null)}
+              />
+            </div>
           )}
-        </Card>
+        </div>
       </div>
     </AppShell>
   )

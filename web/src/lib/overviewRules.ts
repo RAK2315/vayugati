@@ -1,11 +1,12 @@
 /**
- * Pure derivation rules for the commander Overview page (CommandView.tsx).
- * No I/O here - mirrors incidentRules.ts's own convention (pure functions,
- * unit-tested directly rather than only through the UI). Every input here
- * comes from data already fetched by existing lib/*.ts functions; nothing
- * in this file invents a new metric that isn't grounded in real columns.
+ * Pure derivation rules shared by the commander Overview, Tasks, Sensors and
+ * Analytics pages. No I/O here - mirrors incidentRules.ts's own convention
+ * (pure functions, unit-tested directly rather than only through the UI).
+ * Every input here comes from data already fetched by existing lib/*.ts
+ * functions; nothing in this file invents a new metric that isn't grounded
+ * in real columns.
  */
-import type { ActiveTaskDispatch } from './incidents'
+import type { ActiveTaskDispatch, Incident } from './incidents'
 import { minutesUntil } from './incidentRules'
 import type { StationHealthRow } from './ops'
 import type { WardForecastSummary, WardSummary } from './data'
@@ -133,4 +134,74 @@ export function rollupStationHealth(rows: StationHealthRow[]): StationHealthRoll
     .slice(0, 3)
     .map((r) => ({ name: r.name, wardName: r.ward_name, ageMinutes: r.latest_reading_age_minutes }))
   return { total: rows.length, active: active.length, stale: stale.length, inactive: inactive.length, topStale }
+}
+
+// ── Analytics page ────────────────────────────────────────────────────────
+
+export interface AgencyPerformanceRow {
+  agency: string
+  assigned: number
+  completed: number
+  overdue: number
+  /** Median minutes from sent_at to acknowledged_at, across dispatches
+   *  where both timestamps exist. Null (not 0) when no dispatch for this
+   *  agency has both - an honest "no sample" rather than a fabricated
+   *  instant response time. */
+  medianResponseMinutes: number | null
+}
+
+const CLOSED_DISPATCH_STATUSES = new Set(['completed', 'cancelled', 'rejected', 'verification_pending'])
+
+/** Per-agency rollup from a wider dispatch window (listTaskDispatchesForAnalytics),
+ *  not the active-only set - completed/cancelled work has to be counted for
+ *  "how is this agency actually performing" to mean anything. Every dispatch
+ *  with no responsible_agency at all is grouped under "Unassigned" rather
+ *  than silently dropped, since an unrouted dispatch is itself a real signal. */
+export function bucketAgencyPerformance(dispatches: ActiveTaskDispatch[]): AgencyPerformanceRow[] {
+  const byAgency = new Map<string, ActiveTaskDispatch[]>()
+  for (const d of dispatches) {
+    const key = d.responsible_agency ?? 'Unassigned'
+    const bucket = byAgency.get(key) ?? []
+    bucket.push(d)
+    byAgency.set(key, bucket)
+  }
+  const rows: AgencyPerformanceRow[] = []
+  for (const [agency, group] of byAgency) {
+    const completed = group.filter((d) => d.status === 'completed').length
+    const overdue = group.filter((d) => {
+      if (CLOSED_DISPATCH_STATUSES.has(d.status)) return false
+      const mins = minutesUntil(nextDueAt(d))
+      return mins != null && mins < 0
+    }).length
+    const responseMinutes = group
+      .filter((d) => d.sent_at && d.acknowledged_at)
+      .map((d) => (new Date(d.acknowledged_at as string).getTime() - new Date(d.sent_at as string).getTime()) / 60_000)
+      .sort((a, b) => a - b)
+    const medianResponseMinutes = responseMinutes.length ? responseMinutes[Math.floor(responseMinutes.length / 2)] : null
+    rows.push({ agency, assigned: group.length, completed, overdue, medianResponseMinutes })
+  }
+  return rows.sort((a, b) => b.assigned - a.assigned)
+}
+
+export interface RecurringWardSummary {
+  wardId: number
+  wardName: string
+  recurrenceCount: number
+}
+
+/** Wards with at least one incident whose recurrence_of_incident_id is set
+ *  - the real, purpose-built column for "this happened again", not a
+ *  heuristic re-derivation from raw incident counts (a ward can legitimately
+ *  have many unrelated incidents without any of them being a recurrence). */
+export function recurringWardsSummary(incidents: Incident[]): RecurringWardSummary[] {
+  const byWard = new Map<number, { wardName: string; count: number }>()
+  for (const i of incidents) {
+    if (i.recurrence_of_incident_id == null || i.ward_id == null) continue
+    const entry = byWard.get(i.ward_id) ?? { wardName: i.ward_name ?? `Ward ${i.ward_id}`, count: 0 }
+    entry.count++
+    byWard.set(i.ward_id, entry)
+  }
+  return [...byWard.entries()]
+    .map(([wardId, { wardName, count }]) => ({ wardId, wardName, recurrenceCount: count }))
+    .sort((a, b) => b.recurrenceCount - a.recurrenceCount)
 }

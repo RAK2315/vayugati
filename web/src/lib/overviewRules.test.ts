@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
+  bucketAgencyPerformance,
   bucketDispatchSla,
   confidenceAtPeak,
   hotspotStatus,
   nextDueAt,
+  recurringWardsSummary,
   rollupStationHealth,
   severeWardsWithin,
   tallySourceMix,
 } from './overviewRules'
-import type { ActiveTaskDispatch } from './incidents'
+import type { ActiveTaskDispatch, Incident } from './incidents'
 import type { StationHealthRow } from './ops'
 import type { WardForecastSummary, WardSummary } from './data'
 
@@ -206,5 +208,85 @@ describe('rollupStationHealth', () => {
     expect(result.stale).toBe(4)
     expect(result.inactive).toBe(1)
     expect(result.topStale.map((s) => s.name)).toEqual(['B', 'A', 'C'])
+  })
+})
+
+describe('bucketAgencyPerformance', () => {
+  it('groups by responsible_agency, falling back to Unassigned', () => {
+    const dispatches = [
+      dispatch({ responsible_agency: 'MCD', status: 'completed' }),
+      dispatch({ responsible_agency: 'MCD', status: 'in_progress' }),
+      dispatch({ responsible_agency: null, status: 'drafted' }),
+    ]
+    const result = bucketAgencyPerformance(dispatches)
+    const mcd = result.find((r) => r.agency === 'MCD')
+    const unassigned = result.find((r) => r.agency === 'Unassigned')
+    expect(mcd?.assigned).toBe(2)
+    expect(mcd?.completed).toBe(1)
+    expect(unassigned?.assigned).toBe(1)
+  })
+
+  it('counts overdue only for non-closed dispatches past their next due checkpoint', () => {
+    const past = new Date(Date.now() - 60 * 60_000).toISOString()
+    const dispatches = [
+      dispatch({ responsible_agency: 'MCD', status: 'sent', sla_ack_due_at: past }),
+      dispatch({ responsible_agency: 'MCD', status: 'completed', sla_ack_due_at: past }), // closed - not overdue
+    ]
+    const result = bucketAgencyPerformance(dispatches)
+    expect(result.find((r) => r.agency === 'MCD')?.overdue).toBe(1)
+  })
+
+  it('computes median response time only from dispatches with both sent_at and acknowledged_at', () => {
+    const dispatches = [
+      dispatch({ responsible_agency: 'MCD', sent_at: '2026-07-20T10:00:00Z', acknowledged_at: '2026-07-20T10:30:00Z' }),
+      dispatch({ responsible_agency: 'MCD', sent_at: null, acknowledged_at: null }),
+    ]
+    const result = bucketAgencyPerformance(dispatches)
+    expect(result.find((r) => r.agency === 'MCD')?.medianResponseMinutes).toBe(30)
+  })
+
+  it('reports null median response time when no dispatch has both timestamps', () => {
+    const dispatches = [dispatch({ responsible_agency: 'MCD', sent_at: null, acknowledged_at: null })]
+    const result = bucketAgencyPerformance(dispatches)
+    expect(result[0].medianResponseMinutes).toBeNull()
+  })
+})
+
+function incident(overrides: Partial<Incident> = {}): Incident {
+  return {
+    id: 1,
+    ward_id: 1,
+    ward_name: 'Ward 1',
+    severity: null,
+    status: 'active',
+    summary: null,
+    detected_at: '2026-07-20T00:00:00Z',
+    created_at: '2026-07-20T00:00:00Z',
+    updated_at: '2026-07-20T00:00:00Z',
+    recurrence_of_incident_id: null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...(overrides as any),
+  } as Incident
+}
+
+describe('recurringWardsSummary', () => {
+  it('counts only incidents with a recurrence_of_incident_id set, grouped by ward', () => {
+    const incidents = [
+      incident({ id: 2, ward_id: 1, ward_name: 'Alpha', recurrence_of_incident_id: 1 }),
+      incident({ id: 3, ward_id: 1, ward_name: 'Alpha', recurrence_of_incident_id: 1 }),
+      incident({ id: 4, ward_id: 2, ward_name: 'Beta', recurrence_of_incident_id: null }), // not a recurrence
+    ]
+    const result = recurringWardsSummary(incidents)
+    expect(result).toEqual([{ wardId: 1, wardName: 'Alpha', recurrenceCount: 2 }])
+  })
+
+  it('returns an empty array when nothing recurs', () => {
+    const incidents = [incident({ recurrence_of_incident_id: null })]
+    expect(recurringWardsSummary(incidents)).toEqual([])
+  })
+
+  it('ignores recurrences with no ward_id', () => {
+    const incidents = [incident({ ward_id: null, recurrence_of_incident_id: 1 })]
+    expect(recurringWardsSummary(incidents)).toEqual([])
   })
 })
