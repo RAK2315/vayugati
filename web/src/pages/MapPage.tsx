@@ -32,7 +32,15 @@ import {
   type Incident,
 } from '../lib/incidents'
 import { HOTSPOT_STATUS_HEX, SOURCE_CATEGORY_HEX, type MapMarker } from '../lib/mapMarkers'
-import { resolveWardReading, type MapPollutant, type MapTimeMode } from '../lib/mapRules'
+import {
+  DELHI_BOUNDS,
+  DELHI_CENTER,
+  DELHI_DEFAULT_ZOOM,
+  isValidDelhiCoordinate,
+  resolveWardReading,
+  type MapPollutant,
+  type MapTimeMode,
+} from '../lib/mapRules'
 import { rollupStationHealth, severeWardsWithin, tallySourceMix } from '../lib/overviewRules'
 import { fetchStationHealth, type StationHealthRow } from '../lib/ops'
 import { useAsync } from '../lib/useAsync'
@@ -117,7 +125,7 @@ export default function MapPage() {
   const wardMarkers: MapMarker[] = useMemo(
     () =>
       wards
-        .filter((w) => w.lat != null && w.lng != null)
+        .filter((w) => isValidDelhiCoordinate(w.lat, w.lng))
         .map((w) => {
           const forecast = forecasts.get(w.id)
           const reading = resolveWardReading(w, pollutant, timeMode, forecast)
@@ -146,20 +154,22 @@ export default function MapPage() {
   const stationMarkers: MapMarker[] = useMemo(
     () =>
       layers.stations
-        ? stations.map((s) => {
-            const health = stationHealthById.get(s.id)
-            const isStale = layers.sensorFreshness && !!health?.is_stale
-            return {
-              id: `station-${s.id}`,
-              kind: 'station' as const,
-              lat: s.lat,
-              lng: s.lng,
-              label: s.name,
-              aqi: s.aqi,
-              isStale,
-              popupHtml: popup(s.name, [`AQI ${s.aqi ?? '-'}`, health?.ward_name ? health.ward_name : '']),
-            }
-          })
+        ? stations
+            .filter((s) => isValidDelhiCoordinate(s.lat, s.lng))
+            .map((s) => {
+              const health = stationHealthById.get(s.id)
+              const isStale = layers.sensorFreshness && !!health?.is_stale
+              return {
+                id: `station-${s.id}`,
+                kind: 'station' as const,
+                lat: s.lat,
+                lng: s.lng,
+                label: s.name,
+                aqi: s.aqi,
+                isStale,
+                popupHtml: popup(s.name, [`AQI ${s.aqi ?? '-'}`, health?.ward_name ? health.ward_name : '']),
+              }
+            })
         : [],
     [layers.stations, layers.sensorFreshness, stations, stationHealthById],
   )
@@ -172,7 +182,7 @@ export default function MapPage() {
       return true
     })
     return filteredIncidents
-      .filter((i) => i.lat != null && i.lng != null)
+      .filter((i) => isValidDelhiCoordinate(i.lat, i.lng))
       .map((i) => {
         const leading = leadingSourceById.get(i.id) as SourceCategory | undefined
         const colorOverride = layers.sourceAttribution && leading ? (SOURCE_CATEGORY_HEX[leading] ?? null) : null
@@ -194,7 +204,7 @@ export default function MapPage() {
     () =>
       layers.citizenReports
         ? reports
-            .filter((r) => r.lat != null && r.lng != null)
+            .filter((r) => isValidDelhiCoordinate(r.lat, r.lng))
             .map((r) => ({
               id: `report-${r.id}`,
               kind: 'report' as const,
@@ -215,17 +225,34 @@ export default function MapPage() {
     [wardMarkers, stationMarkers, incidentMarkers, reportMarkers],
   )
 
+  // Only ever built from validated Delhi/NCR coordinates - a single bad row
+  // elsewhere in India must never be able to stretch "Reset to Delhi" out to
+  // city/world scale (see mapRules.ts's isValidDelhiCoordinate).
   const cityBoundsCoords = useMemo<[number, number][]>(() => {
     const coords: [number, number][] = []
-    for (const w of wards) if (w.lat != null && w.lng != null) coords.push([w.lng as number, w.lat as number])
-    for (const s of stations) coords.push([s.lng, s.lat])
+    for (const w of wards) if (isValidDelhiCoordinate(w.lat, w.lng)) coords.push([w.lng as number, w.lat as number])
+    for (const s of stations) if (isValidDelhiCoordinate(s.lat, s.lng)) coords.push([s.lng, s.lat])
     return coords
   }, [wards, stations])
+  // No valid points at all -> fit to the Delhi bounds box itself, a real
+  // geographic constant, rather than an empty/undefined fitBounds call.
+  const delhiBoundsCoords: [number, number][] = [
+    [DELHI_BOUNDS.minLng, DELHI_BOUNDS.minLat],
+    [DELHI_BOUNDS.maxLng, DELHI_BOUNDS.maxLat],
+  ]
   const fitBoundsTo = useMemo(
-    () => (resetToken > 0 ? [...cityBoundsCoords] : undefined),
+    () => (resetToken > 0 ? (cityBoundsCoords.length > 0 ? [...cityBoundsCoords] : delhiBoundsCoords) : undefined),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [resetToken],
   )
+
+  const locationsUnavailable = useMemo(() => {
+    const invalidWards = wards.filter((w) => !isValidDelhiCoordinate(w.lat, w.lng)).length
+    const invalidStations = stations.filter((s) => !isValidDelhiCoordinate(s.lat, s.lng)).length
+    const invalidIncidents = incidents.filter((i) => !isValidDelhiCoordinate(i.lat, i.lng)).length
+    const invalidReports = reports.filter((r) => !isValidDelhiCoordinate(r.lat, r.lng)).length
+    return invalidWards + invalidStations + invalidIncidents + invalidReports
+  }, [wards, stations, incidents, reports])
 
   const handleMarkerClick = useCallback((marker: MapMarker) => {
     const [kind, rawId] = marker.id.split('-')
@@ -292,6 +319,8 @@ export default function MapPage() {
               <div className="relative min-h-0 flex-1">
                 <MapView
                   markers={allMarkers}
+                  center={DELHI_CENTER}
+                  zoom={DELHI_DEFAULT_ZOOM}
                   styleUrl={resolveStyleUrl(basemap)}
                   showScaleBar
                   onMarkerClick={handleMarkerClick}
@@ -313,6 +342,7 @@ export default function MapPage() {
                     predictedHotspots={severeWards.length}
                     dominantSource={sourceMix[0] ?? null}
                     staleSensors={healthRollup.stale}
+                    locationsUnavailable={locationsUnavailable}
                   />
                 ) : selectedWard ? (
                   <SelectedWardPanel
@@ -337,6 +367,7 @@ export default function MapPage() {
                     predictedHotspots={severeWards.length}
                     dominantSource={sourceMix[0] ?? null}
                     staleSensors={healthRollup.stale}
+                    locationsUnavailable={locationsUnavailable}
                   />
                 )}
               </div>

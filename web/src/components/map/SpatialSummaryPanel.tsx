@@ -1,4 +1,4 @@
-import { Compass } from 'lucide-react'
+import { Compass, TriangleAlert } from 'lucide-react'
 import { Stat } from '../ui'
 
 /** City-level summary shown in the right panel when nothing is selected -
@@ -12,6 +12,7 @@ export default function SpatialSummaryPanel({
   predictedHotspots,
   dominantSource,
   staleSensors,
+  locationsUnavailable,
 }: {
   wardsShown: number
   stationsActive: number
@@ -19,6 +20,9 @@ export default function SpatialSummaryPanel({
   predictedHotspots: number
   dominantSource: { source: string; count: number } | null
   staleSensors: number
+  /** Count of wards/stations/incidents/reports with missing or out-of-Delhi
+   *  coordinates - dropped from the map rather than plotted incorrectly. */
+  locationsUnavailable: number
 }) {
   return (
     <div className="p-4">
@@ -39,6 +43,13 @@ export default function SpatialSummaryPanel({
           label="Dominant source signal"
         />
       </div>
+
+      {locationsUnavailable > 0 && (
+        <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-500">
+          <TriangleAlert className="h-3 w-3 flex-shrink-0 text-slate-400" strokeWidth={2} aria-hidden />
+          {locationsUnavailable} location{locationsUnavailable > 1 ? 's' : ''} unavailable - missing or outside Delhi/NCR.
+        </p>
+      )}
     </div>
   )
 }

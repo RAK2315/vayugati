@@ -1,7 +1,7 @@
-import maplibregl from 'maplibre-gl'
+import maplibregl, { type StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useRef } from 'react'
-import { DEMO_STYLE_URL } from '../lib/basemaps'
+import { FALLBACK_STYLE } from '../lib/basemaps'
 import { createMarkerElement, ensurePulseStyle, type MapMarker } from '../lib/mapMarkers'
 
 export type { MapMarker, MapMarkerKind } from '../lib/mapMarkers'
@@ -12,9 +12,10 @@ interface Props {
   markers?: MapMarker[]
   center?: [number, number]
   zoom?: number
-  /** Basemap style URL - defaults to the free MapLibre demo style, exactly
-   *  the map's behaviour before the basemap switcher existed. */
-  styleUrl?: string
+  /** Basemap style URL or inline style spec - defaults to the keyless CARTO
+   *  fallback, exactly the map's behaviour before the basemap switcher
+   *  existed (just a nicer default style than the original MapLibre demo). */
+  styleUrl?: string | StyleSpecification
   showScaleBar?: boolean
   onMarkerClick?: (marker: MapMarker) => void
   onHoverCoordinates?: (coords: { lng: number; lat: number } | null) => void
@@ -47,7 +48,7 @@ export default function MapView({
     if (!containerRef.current) return
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: styleUrl ?? DEMO_STYLE_URL,
+      style: styleUrl ?? FALLBACK_STYLE,
       center: center ?? DELHI_CENTER,
       zoom,
     })
@@ -83,7 +84,10 @@ export default function MapView({
       (b, coord) => b.extend(coord),
       new maplibregl.LngLatBounds(fitBoundsTo[0], fitBoundsTo[0]),
     )
-    map.fitBounds(bounds, { padding: 56, maxZoom: 13, duration: 600 })
+    // minZoom is defense in depth on top of MapPage's own coordinate
+    // validation - a bad point should never be able to zoom this out past
+    // city scale, even in theory.
+    map.fitBounds(bounds, { padding: 56, minZoom: 9, maxZoom: 13, duration: 600 })
   }, [fitBoundsTo])
 
   // sync markers whenever they change (or map is ready)

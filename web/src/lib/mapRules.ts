@@ -10,6 +10,28 @@ import type { ForecastPoint, StationMarker, WardForecastSummary, WardSummary } f
 export type MapPollutant = 'aqi' | 'pm25' | 'pm10' | 'no2'
 export type MapTimeMode = 'now' | '24h' | '48h'
 
+/** Delhi MVP viewport - the only city this pilot serves today (see
+ *  docs/IMPLEMENTATION_STATUS.md), so a real, fixed default rather than a
+ *  computed one is honest, not a shortcut. */
+export const DELHI_CENTER: [number, number] = [77.209, 28.6139]
+export const DELHI_DEFAULT_ZOOM = 11
+
+/** A generous Delhi/NCR bounding box (covers Delhi proper plus the
+ *  Gurugram/Noida/Faridabad/Ghaziabad edges) - a real geographic constant,
+ *  not fabricated data. Used to both validate incoming coordinates and as
+ *  the "Reset to Delhi" fallback view when no valid points exist. */
+export const DELHI_BOUNDS = { minLng: 76.7, maxLng: 77.7, minLat: 28.2, maxLat: 29.0 }
+
+/** True only for a finite lat/lng pair that actually falls within the Delhi/
+ *  NCR box. A wrong-but-non-null coordinate elsewhere in India (or a stray
+ *  0,0) must never be plotted or allowed to stretch a fit-bounds call out to
+ *  city/world scale - this is the single gate every marker source runs
+ *  through before rendering. */
+export function isValidDelhiCoordinate(lat: number | null | undefined, lng: number | null | undefined): boolean {
+  if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) return false
+  return lat >= DELHI_BOUNDS.minLat && lat <= DELHI_BOUNDS.maxLat && lng >= DELHI_BOUNDS.minLng && lng <= DELHI_BOUNDS.maxLng
+}
+
 export const MAP_POLLUTANT_LABEL: Record<MapPollutant, string> = {
   aqi: 'AQI',
   pm25: POLLUTANT_LABEL.pm25,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nearestForecastPoint, resolveWardReading, stationReadingValue } from './mapRules'
+import { isValidDelhiCoordinate, nearestForecastPoint, resolveWardReading, stationReadingValue } from './mapRules'
 import type { ForecastPoint, WardForecastSummary } from './data'
 
 function point(overrides: Partial<ForecastPoint> = {}): ForecastPoint {
@@ -92,5 +92,37 @@ describe('stationReadingValue', () => {
     expect(stationReadingValue(station, 'pm25')).toBe(40)
     expect(stationReadingValue(station, 'pm10')).toBe(70)
     expect(stationReadingValue(station, 'no2')).toBe(15)
+  })
+})
+
+describe('isValidDelhiCoordinate', () => {
+  it('accepts a real Delhi point', () => {
+    expect(isValidDelhiCoordinate(28.6139, 77.209)).toBe(true)
+  })
+
+  it('accepts points near the Delhi/NCR edges (Gurugram, Noida)', () => {
+    expect(isValidDelhiCoordinate(28.4595, 77.0266)).toBe(true) // Gurugram
+    expect(isValidDelhiCoordinate(28.5355, 77.391)).toBe(true) // Noida
+  })
+
+  it('rejects null/undefined/NaN coordinates', () => {
+    expect(isValidDelhiCoordinate(null, 77.209)).toBe(false)
+    expect(isValidDelhiCoordinate(28.6139, null)).toBe(false)
+    expect(isValidDelhiCoordinate(undefined, undefined)).toBe(false)
+    expect(isValidDelhiCoordinate(NaN, 77.209)).toBe(false)
+  })
+
+  it('rejects a real but out-of-NCR Indian point', () => {
+    expect(isValidDelhiCoordinate(19.076, 72.8777)).toBe(false) // Mumbai
+    expect(isValidDelhiCoordinate(13.0827, 80.2707)).toBe(false) // Chennai
+  })
+
+  it('rejects a stray 0,0 coordinate', () => {
+    expect(isValidDelhiCoordinate(0, 0)).toBe(false)
+  })
+
+  it('rejects points just outside the bounding box', () => {
+    expect(isValidDelhiCoordinate(29.1, 77.209)).toBe(false)
+    expect(isValidDelhiCoordinate(28.6139, 76.5)).toBe(false)
   })
 })
