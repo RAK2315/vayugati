@@ -93,7 +93,18 @@ function haloElement(colorHex: string): HTMLDivElement {
 
 function wrapper(): HTMLDivElement {
   const el = document.createElement('div')
-  el.style.cssText = 'position:relative; display:flex; align-items:center; justify-content:center; cursor:pointer;'
+  // No `position` here - maplibregl.Marker's own CSS class
+  // (`.maplibregl-marker { position: absolute; top: 0; left: 0 }`) supplies
+  // it, and positions the element purely via `transform: translate(...)`.
+  // An inline `position:relative` here would win the cascade over that
+  // class rule (inline styles always beat class selectors), knocking the
+  // marker out of the map canvas's absolute-positioning context and into
+  // normal document flow - every marker stacking under the last one - which
+  // is exactly the "markers line up vertically" bug this fixes. `absolute`
+  // (from the class) is still a valid positioning context for this
+  // element's own absolutely-positioned children (halo ring, stale dot,
+  // dispatch flag), so nothing else needs to change.
+  el.style.cssText = 'display:flex; align-items:center; justify-content:center; cursor:pointer;'
   return el
 }
 
