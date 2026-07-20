@@ -48,27 +48,27 @@ function HypothesisCard({
   const isVerified = h.confidence_level === 'officially_verified'
 
   return (
-    <li className="rounded-lg bg-ink-50/60 p-2.5">
+    <li className="rounded-lg bg-slate-50 p-2.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold capitalize text-ink-800">{sourceCategoryLabel(h.source_category)}</span>
-        <span className="tabular-nums text-sm font-semibold text-ink-800">{pct(h.probability)}</span>
+        <span className="text-sm font-semibold capitalize text-slate-800">{sourceCategoryLabel(h.source_category)}</span>
+        <span className="tabular-nums text-sm font-semibold text-slate-800">{pct(h.probability)}</span>
       </div>
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
-        <div className="h-full rounded-full bg-brand-500" style={{ width: pct(h.probability) }} />
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-accent-500" style={{ width: pct(h.probability) }} />
       </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-ink-400">
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-400">
         <span className="font-semibold uppercase tracking-wide">
           {h.confidence_level === 'officially_verified' ? 'Officially verified' : h.confidence_level === 'corroborated' ? 'Corroborated' : 'Suspected'}
         </span>
         {reviewStatus !== 'pending' && <span>· {HYPOTHESIS_REVIEW_STATUS_LABEL[reviewStatus]}</span>}
         {h.model_version && <span>· {h.model_version}</span>}
       </div>
-      {h.rationale && <p className="mt-1 text-xs text-ink-500">{h.rationale}</p>}
+      {h.rationale && <p className="mt-1 text-xs text-slate-500">{h.rationale}</p>}
 
       {supporting.length > 0 && (
         <div className="mt-1.5">
           <p className="text-[11px] font-semibold text-status-success">Supporting evidence</p>
-          <ul className="mt-0.5 list-disc pl-4 text-[11px] text-ink-600">
+          <ul className="mt-0.5 list-disc pl-4 text-[11px] text-slate-600">
             {supporting.map((s, i) => (
               <li key={i}>{s}</li>
             ))}
@@ -78,7 +78,7 @@ function HypothesisCard({
       {contradicting.length > 0 && (
         <div className="mt-1.5">
           <p className="text-[11px] font-semibold text-status-critical">Contradictory evidence</p>
-          <ul className="mt-0.5 list-disc pl-4 text-[11px] text-ink-600">
+          <ul className="mt-0.5 list-disc pl-4 text-[11px] text-slate-600">
             {contradicting.map((s, i) => (
               <li key={i}>{s}</li>
             ))}
@@ -87,15 +87,15 @@ function HypothesisCard({
       )}
       {missing.length > 0 && (
         <div className="mt-1.5">
-          <p className="text-[11px] font-semibold text-ink-500">Missing evidence</p>
-          <ul className="mt-0.5 list-disc pl-4 text-[11px] text-ink-400">
+          <p className="text-[11px] font-semibold text-slate-500">Missing evidence</p>
+          <ul className="mt-0.5 list-disc pl-4 text-[11px] text-slate-400">
             {missing.map((s, i) => (
               <li key={i}>{s}</li>
             ))}
           </ul>
         </div>
       )}
-      {h.review_note && <p className="mt-1 text-[11px] italic text-ink-500">Command note: {h.review_note}</p>}
+      {h.review_note && <p className="mt-1 text-[11px] italic text-slate-500">Command note: {h.review_note}</p>}
 
       {!isVerified && (
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -103,7 +103,7 @@ function HypothesisCard({
             type="button"
             disabled={busy || reviewStatus === 'confirmed_corroborated'}
             onClick={() => onReview(h, 'confirmed_corroborated')}
-            className="focus-ring rounded border border-ink-200 px-2 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-white disabled:opacity-50"
+            className="focus-ring rounded border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-white disabled:opacity-50"
           >
             Confirm as corroborated
           </button>
@@ -111,7 +111,7 @@ function HypothesisCard({
             type="button"
             disabled={busy || reviewStatus === 'marked_unresolved'}
             onClick={() => onReview(h, 'marked_unresolved')}
-            className="focus-ring rounded border border-ink-200 px-2 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-white disabled:opacity-50"
+            className="focus-ring rounded border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-white disabled:opacity-50"
           >
             Mark unresolved
           </button>
@@ -182,46 +182,46 @@ export default function SourceAttributionPanel({ detail, onRefresh }: { detail: 
   }
 
   return (
-    <section className="border-t border-ink-900/5 px-4 py-3">
+    <section className="border-t border-slate-100 px-4 py-3">
       <div className="mb-1 flex items-center gap-2">
         <Label dark>Source attribution</Label>
-        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">
+        <span className="rounded bg-status-warning/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-status-warning">
           {PROBABLE_SOURCE_DISCLAIMER}
         </span>
       </div>
 
       <dl className="mb-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-3">
         <div>
-          <dt className="text-ink-400">Local / regional classification</dt>
-          <dd className="font-semibold text-ink-700">
+          <dt className="text-slate-400">Local / regional classification</dt>
+          <dd className="font-semibold text-slate-700">
             {incident.classification ? CLASSIFICATION_LABEL[incident.classification] : 'Not yet classified'}
             {isHumanConfirmedClassification(incident.classification_source) && (
-              <span className="ml-1 font-normal text-ink-400">(human-confirmed)</span>
+              <span className="ml-1 font-normal text-slate-400">(human-confirmed)</span>
             )}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Probable responsible authority</dt>
-          <dd className="font-semibold text-ink-700">
+          <dt className="text-slate-400">Probable responsible authority</dt>
+          <dd className="font-semibold text-slate-700">
             {incident.classification === 'regional' ? (
-              <span className="font-normal text-ink-400">Not applicable - regional</span>
+              <span className="font-normal text-slate-400">Not applicable - regional</span>
             ) : responsibleAuthority?.regulating_authority ? (
               <>
                 {responsibleAuthority.regulating_authority}
-                <span className="ml-1 font-normal text-ink-400">
+                <span className="ml-1 font-normal text-slate-400">
                   ({Math.round((responsibleAuthority.routing_confidence ?? 0) * 100)}% routing confidence)
                 </span>
               </>
             ) : (
-              <span className="font-normal text-ink-400">
+              <span className="font-normal text-slate-400">
                 {responsibleAuthority?.note ?? 'Unresolved jurisdiction'}
               </span>
             )}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Last calculated</dt>
-          <dd className="font-semibold text-ink-700">
+          <dt className="text-slate-400">Last calculated</dt>
+          <dd className="font-semibold text-slate-700">
             {lastCalculated ? new Date(lastCalculated).toLocaleString() : '-'}
           </dd>
         </div>
@@ -230,7 +230,7 @@ export default function SourceAttributionPanel({ detail, onRefresh }: { detail: 
       {dataQualityWarning && (
         <div className="mb-2 flex items-start gap-2 rounded-lg bg-status-warning/10 px-2.5 py-1.5">
           <UnavailableBadge label="Data-quality note" />
-          <p className="text-[11px] text-ink-600">{dataQualityWarning}</p>
+          <p className="text-[11px] text-slate-600">{dataQualityWarning}</p>
         </div>
       )}
 
@@ -241,7 +241,7 @@ export default function SourceAttributionPanel({ detail, onRefresh }: { detail: 
       </ul>
 
       {needsEvidence && (
-        <div className="mt-2 rounded-lg bg-ink-50 px-2.5 py-1.5 text-[11px] text-ink-600">
+        <div className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600">
           <span className="font-semibold">Recommended next evidence:</span>{' '}
           {recommendedMission ? (
             <>
@@ -259,7 +259,7 @@ export default function SourceAttributionPanel({ detail, onRefresh }: { detail: 
           type="button"
           disabled={busy}
           onClick={recalculate}
-          className="focus-ring rounded-lg border border-ink-200 px-2.5 py-1 text-[11px] font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-50"
+          className="focus-ring rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           Request recalculation
         </button>

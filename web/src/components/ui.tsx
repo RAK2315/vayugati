@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -179,6 +180,9 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
 export interface TabItem {
   key: string
   label: string
+  /** Optional - renders left of the label when present. Backward compatible:
+   *  consumers that don't pass one (e.g. MapPage.tsx) are unaffected. */
+  icon?: LucideIcon
 }
 
 export function Tabs({ tabs, active, onChange }: { tabs: TabItem[]; active: string; onChange: (key: string) => void }) {
@@ -186,6 +190,7 @@ export function Tabs({ tabs, active, onChange }: { tabs: TabItem[]; active: stri
     <div role="tablist" aria-label="Incident sections" className="flex flex-shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-white px-2 sm:px-3">
       {tabs.map((t) => {
         const selected = t.key === active
+        const Icon = t.icon
         return (
           <button
             key={t.key}
@@ -193,10 +198,11 @@ export function Tabs({ tabs, active, onChange }: { tabs: TabItem[]; active: stri
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(t.key)}
-            className={`focus-ring flex-shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition ${
+            className={`focus-ring flex flex-shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition ${
               selected ? 'border-accent-600 text-accent-700' : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
+            {Icon && <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />}
             {t.label}
           </button>
         )

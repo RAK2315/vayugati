@@ -208,6 +208,24 @@ export const QUEUE_LABELS: Record<QueueKey, string> = {
  */
 export const ESCALATION_SLA_HOURS = 24
 
+export type CurrentReading =
+  | { kind: 'live'; aqi: number }
+  | { kind: 'forecast'; excess: number }
+  | { kind: 'unavailable' }
+
+/**
+ * The incidents table has no live AQI/PM2.5 field of its own — only
+ * `local_excess`, a forecast-derived figure. Prefer the ward's real live
+ * reading (from fetchAllWardsAqi, joined by ward_id) when one exists;
+ * fall back to the incident's own forecast excess rather than inventing a
+ * number. Never silently blank when either real value exists.
+ */
+export function currentReading(wardAqi: number | null, localExcess: number | null): CurrentReading {
+  if (wardAqi != null) return { kind: 'live', aqi: wardAqi }
+  if (localExcess != null) return { kind: 'forecast', excess: localExcess }
+  return { kind: 'unavailable' }
+}
+
 export interface QueueIncident {
   status: IncidentStatus
   detection_method: string

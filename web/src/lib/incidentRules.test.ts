@@ -19,6 +19,7 @@ import {
   citizenActionVerificationSafety,
   citizenRecurrenceStatusLabel,
   citizenVerificationSafety,
+  currentReading,
   customActionClassificationBlockedReason,
   describeAnomalyDetectionRule,
   describeTriggeredRule,
@@ -207,6 +208,24 @@ describe('queue filters', () => {
     expect(inQueue(incident({ status: 'closed', pending_recurrence_count: 0 }), 'recurrence')).toBe(false)
     expect(inQueue(incident({ status: 'closed' }), 'recurrence')).toBe(false)
     expect(inQueue(incident({ status: 'detected', pending_recurrence_count: 1 }), 'recurrence')).toBe(false)
+  })
+})
+
+describe('currentReading', () => {
+  it('prefers the ward live reading when one exists', () => {
+    expect(currentReading(180, 40)).toEqual({ kind: 'live', aqi: 180 })
+  })
+
+  it('falls back to the forecast excess when there is no live ward reading', () => {
+    expect(currentReading(null, 40)).toEqual({ kind: 'forecast', excess: 40 })
+  })
+
+  it('is unavailable when neither a live reading nor a forecast excess exists', () => {
+    expect(currentReading(null, null)).toEqual({ kind: 'unavailable' })
+  })
+
+  it('treats a live reading of 0 as real, not missing', () => {
+    expect(currentReading(0, 40)).toEqual({ kind: 'live', aqi: 0 })
   })
 })
 

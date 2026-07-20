@@ -115,6 +115,32 @@ export async function listIncidents(opts: ListIncidentsOptions = {}): Promise<In
   return (data ?? []).map((r) => shapeIncident(r as never))
 }
 
+/**
+ * The leading (highest-probability) source hypothesis per incident, bulk
+ * fetched for a set of incident ids. Extracted from a pattern that used to be
+ * duplicated inline in listMissionsForUser and listInterventionsForOfficer
+ * below - same query, same "highest probability wins" rule, now shared.
+ * Returns an empty map (never throws) on failure - a missing "likely
+ * source" column degrades a list row, it should not break the list.
+ */
+export async function listLeadingSourceCategories(incidentIds: number[]): Promise<Map<number, SourceCategory>> {
+  const leading = new Map<number, SourceCategory>()
+  if (incidentIds.length === 0) return leading
+  try {
+    const { data: hyps } = await supabase
+      .from('incident_source_hypotheses')
+      .select('incident_id, source_category, probability')
+      .in('incident_id', incidentIds)
+      .order('probability', { ascending: false })
+    for (const h of hyps ?? []) {
+      if (h.source_category && !leading.has(h.incident_id)) leading.set(h.incident_id, h.source_category)
+    }
+  } catch {
+    // degrade silently - see doc comment above
+  }
+  return leading
+}
+
 export interface IncidentsPage {
   rows: Incident[]
   totalCount: number
@@ -757,20 +783,9 @@ export async function listMissionsForUser(userId: string): Promise<MissionWithIn
   }
 
   // Leading hypothesis drives the checklist. Citizens can't read hypotheses at
-  // all (RLS), so this must degrade to a generic checklist rather than throw.
-  let leading = new Map<number, SourceCategory>()
-  try {
-    const { data: hyps } = await supabase
-      .from('incident_source_hypotheses')
-      .select('incident_id, source_category, probability')
-      .in('incident_id', incidentIds)
-      .order('probability', { ascending: false })
-    for (const h of hyps ?? []) {
-      if (h.source_category && !leading.has(h.incident_id)) leading.set(h.incident_id, h.source_category)
-    }
-  } catch {
-    leading = new Map()
-  }
+  // all (RLS), so this must degrade to a generic checklist rather than throw
+  // (listLeadingSourceCategories already degrades silently - see its own doc).
+  const leading = await listLeadingSourceCategories(incidentIds)
 
   return missions.map((m) => ({
     mission: m,
@@ -1041,15 +1056,7 @@ export async function listInterventionsForOfficer(userId: string): Promise<Inter
     byId.set(shaped.id, shaped)
   }
 
-  const { data: hyps } = await supabase
-    .from('incident_source_hypotheses')
-    .select('incident_id, source_category, probability')
-    .in('incident_id', incidentIds)
-    .order('probability', { ascending: false })
-  const leading = new Map<number, SourceCategory>()
-  for (const h of hyps ?? []) {
-    if (h.source_category && !leading.has(h.incident_id)) leading.set(h.incident_id, h.source_category)
-  }
+  const leading = await listLeadingSourceCategories(incidentIds)
 
   return actions.map((action) => ({
     action,

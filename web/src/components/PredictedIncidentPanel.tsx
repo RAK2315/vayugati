@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ArrowUpRight, Eye, GitMerge, XCircle } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import {
   DETECTION_STAGE_LABEL,
@@ -56,7 +57,7 @@ function ForecastCurveChart({
   points: { horizon_ts: string; predicted_value: number | null; lower_bound: number | null; upper_bound: number | null }[]
 }) {
   const data = points.filter((p) => p.predicted_value != null) as (typeof points[number] & { predicted_value: number })[]
-  if (data.length < 2) return <p className="text-xs text-ink-400">No forecast curve yet.</p>
+  if (data.length < 2) return <p className="text-xs text-slate-400">No forecast curve yet.</p>
 
   const W = 320
   const H = 96
@@ -161,66 +162,66 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
   const isActionable = incident.status !== 'closed'
 
   return (
-    <section className="border-t border-ink-900/5 px-4 py-3">
+    <section className="border-t border-slate-100 px-4 py-3">
       <div className="mb-2 flex items-center gap-2">
         <Label dark>Automated detection</Label>
-        <span className="rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-brand-800">
+        <span className="rounded bg-accent-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-accent-800">
           {DETECTION_STAGE_LABEL[incident.detection_stage]}
         </span>
       </div>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] sm:grid-cols-4">
         <div>
-          <dt className="text-ink-400">Location</dt>
-          <dd className="font-semibold text-ink-700">{incident.ward_name ?? 'Unknown ward'}</dd>
+          <dt className="text-slate-400">Location</dt>
+          <dd className="font-semibold text-slate-700">{incident.ward_name ?? 'Unknown ward'}</dd>
         </div>
         <div>
-          <dt className="text-ink-400">Pollutant</dt>
-          <dd className="font-semibold text-ink-700">{pollutant ? POLLUTANT_LABEL[pollutant] : '-'}</dd>
+          <dt className="text-slate-400">Pollutant</dt>
+          <dd className="font-semibold text-slate-700">{pollutant ? POLLUTANT_LABEL[pollutant] : '-'}</dd>
         </div>
         <div>
-          <dt className="text-ink-400">Current concentration</dt>
-          <dd className="font-semibold text-ink-700">{fmt(latest?.current_concentration ?? null)}</dd>
+          <dt className="text-slate-400">Current concentration</dt>
+          <dd className="font-semibold text-slate-700">{fmt(latest?.current_concentration ?? null)}</dd>
         </div>
         <div>
-          <dt className="text-ink-400">Local excess</dt>
-          <dd className="font-semibold text-ink-700">{fmt(latest?.local_excess ?? null)}</dd>
+          <dt className="text-slate-400">Local excess</dt>
+          <dd className="font-semibold text-slate-700">{fmt(latest?.local_excess ?? null)}</dd>
         </div>
         <div>
-          <dt className="text-ink-400">Rate of increase</dt>
-          <dd className="font-semibold text-ink-700">{latest?.rate_of_increase != null ? `${fmt(latest.rate_of_increase)}/h` : '-'}</dd>
+          <dt className="text-slate-400">Rate of increase</dt>
+          <dd className="font-semibold text-slate-700">{latest?.rate_of_increase != null ? `${fmt(latest.rate_of_increase)}/h` : '-'}</dd>
         </div>
         <div>
-          <dt className="text-ink-400">Expected threshold crossing</dt>
-          <dd className="font-semibold text-ink-700">
+          <dt className="text-slate-400">Expected threshold crossing</dt>
+          <dd className="font-semibold text-slate-700">
             {latest?.projected_crossing_at ? new Date(latest.projected_crossing_at).toLocaleString() : latest?.detection_stage === 'detected' ? 'Already crossed' : '-'}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Data confidence</dt>
-          <dd className="font-semibold text-ink-700">{latest?.confidence != null ? `${Math.round(latest.confidence * 100)}%` : '-'}</dd>
+          <dt className="text-slate-400">Data confidence</dt>
+          <dd className="font-semibold text-slate-700">{latest?.confidence != null ? `${Math.round(latest.confidence * 100)}%` : '-'}</dd>
         </div>
         <div>
-          <dt className="text-ink-400">Sensor</dt>
-          <dd className="font-semibold text-ink-700">
+          <dt className="text-slate-400">Sensor</dt>
+          <dd className="font-semibold text-slate-700">
             {latest?.sensor_quality ?? '-'}
             {sensorQualityCaveat(latest?.sensor_quality ?? null) && (
-              <span className="ml-1 font-normal text-ink-400">({sensorQualityCaveat(latest?.sensor_quality ?? null)})</span>
+              <span className="ml-1 font-normal text-slate-400">({sensorQualityCaveat(latest?.sensor_quality ?? null)})</span>
             )}
           </dd>
         </div>
         {latest?.prediction_method && (
           <div>
-            <dt className="text-ink-400">Prediction method</dt>
-            <dd className="font-semibold text-ink-700">{PREDICTION_METHOD_LABEL[latest.prediction_method as PredictionMethod]}</dd>
+            <dt className="text-slate-400">Prediction method</dt>
+            <dd className="font-semibold text-slate-700">{PREDICTION_METHOD_LABEL[latest.prediction_method as PredictionMethod]}</dd>
           </div>
         )}
       </dl>
 
       {triggeredRules.length > 0 && (
         <div className="mt-2">
-          <p className="text-[11px] font-semibold text-ink-600">Triggered detection rules</p>
-          <ul className="mt-0.5 list-disc pl-4 text-[11px] text-ink-600">
+          <p className="text-[11px] font-semibold text-slate-600">Triggered detection rules</p>
+          <ul className="mt-0.5 list-disc pl-4 text-[11px] text-slate-600">
             {triggeredRules.map((r) => (
               <li key={r}>{describeTriggeredRule(r)}</li>
             ))}
@@ -230,16 +231,16 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
 
       {nearbyStations.length > 0 && (
         <div className="mt-2">
-          <p className="text-[11px] font-semibold text-ink-600">Nearby monitoring stations</p>
-          <p className="mt-0.5 text-[11px] text-ink-500">{nearbyStations.map((s) => s.name).join(', ')}</p>
+          <p className="text-[11px] font-semibold text-slate-600">Nearby monitoring stations</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">{nearbyStations.map((s) => s.name).join(', ')}</p>
         </div>
       )}
 
       {run && (
-        <div className="mt-3 rounded-lg border border-ink-900/10 bg-white p-2.5">
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[11px] font-semibold text-ink-700">Forecast - {pollutant ? POLLUTANT_LABEL[pollutant] : ''}</p>
-            <span className="rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-ink-500">{FORECAST_DISCLAIMER}</span>
+            <p className="text-[11px] font-semibold text-slate-700">Forecast - {pollutant ? POLLUTANT_LABEL[pollutant] : ''}</p>
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500">{FORECAST_DISCLAIMER}</span>
           </div>
 
           <div className="mt-2">
@@ -248,16 +249,16 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
 
           <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-3">
             <div>
-              <dt className="text-ink-400">Method used</dt>
-              <dd className="font-semibold text-ink-700">{FORECAST_METHOD_LABEL[run.method as ForecastMethod]}</dd>
+              <dt className="text-slate-400">Method used</dt>
+              <dd className="font-semibold text-slate-700">{FORECAST_METHOD_LABEL[run.method as ForecastMethod]}</dd>
             </div>
             <div>
-              <dt className="text-ink-400">Fallback status</dt>
-              <dd className="font-semibold text-ink-700">{forecastFallbackStatus(run.method as ForecastMethod, run.beats_persistence)}</dd>
+              <dt className="text-slate-400">Fallback status</dt>
+              <dd className="font-semibold text-slate-700">{forecastFallbackStatus(run.method as ForecastMethod, run.beats_persistence)}</dd>
             </div>
             <div>
-              <dt className="text-ink-400">Validated up to</dt>
-              <dd className="font-semibold text-ink-700">
+              <dt className="text-slate-400">Validated up to</dt>
+              <dd className="font-semibold text-slate-700">
                 {run.max_validated_horizon_hours != null ? `${run.max_validated_horizon_hours}h` : 'Not yet validated'}
               </dd>
             </div>
@@ -265,7 +266,7 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
 
           {run.validation_metrics && Object.keys(run.validation_metrics as object).length > 0 && (
             <div className="mt-2">
-              <p className="text-[11px] font-semibold text-ink-600">Model accuracy by horizon (MAE vs. persistence)</p>
+              <p className="text-[11px] font-semibold text-slate-600">Model accuracy by horizon (MAE vs. persistence)</p>
               <div className="mt-1 flex flex-wrap gap-2">
                 {Object.entries(run.validation_metrics as Record<string, { mae: number; persistence_mae: number; beats_persistence: boolean }>).map(
                   ([h, m]) => (
@@ -273,8 +274,8 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
                       key={h}
                       className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
                         isHorizonValidated(run.max_validated_horizon_hours, Number(h))
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-ink-100 text-ink-500'
+                          ? 'bg-status-success/10 text-status-success'
+                          : 'bg-slate-100 text-slate-500'
                       }`}
                       title={`Persistence MAE ${m.persistence_mae}`}
                     >
@@ -295,21 +296,25 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
       )}
 
       {anomalyCandidates.length > 1 && (
-        <p className="mt-2 text-[11px] text-ink-400">{anomalyCandidates.length} detection signals recorded for this incident.</p>
+        <p className="mt-2 text-[11px] text-slate-400">{anomalyCandidates.length} detection signals recorded for this incident.</p>
       )}
 
       {isActionable && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <button type="button" disabled={busy} onClick={continueMonitoring} className="focus-ring rounded-lg border border-ink-200 px-2.5 py-1 text-[11px] font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={continueMonitoring} className="focus-ring flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            <Eye className="h-3 w-3" strokeWidth={2} aria-hidden />
             Continue monitoring
           </button>
-          <button type="button" disabled={busy} onClick={confirm} className="focus-ring rounded-lg bg-brand-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand-800 disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={confirm} className="focus-ring flex items-center gap-1.5 rounded-lg bg-accent-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-accent-700 disabled:opacity-50">
+            <ArrowUpRight className="h-3 w-3" strokeWidth={2} aria-hidden />
             Promote to active incident
           </button>
-          <button type="button" disabled={busy} onClick={dismiss} className="focus-ring rounded-lg border border-ink-200 px-2.5 py-1 text-[11px] font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={dismiss} className="focus-ring flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            <XCircle className="h-3 w-3" strokeWidth={2} aria-hidden />
             Dismiss as data anomaly
           </button>
-          <button type="button" disabled={busy} onClick={merge} className="focus-ring rounded-lg border border-ink-200 px-2.5 py-1 text-[11px] font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={merge} className="focus-ring flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            <GitMerge className="h-3 w-3" strokeWidth={2} aria-hidden />
             Merge with existing incident
           </button>
         </div>

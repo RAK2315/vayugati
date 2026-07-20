@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { BarChart3, ClipboardList, Lock, Wrench } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import {
   BEFORE_AFTER_LIMITATION,
@@ -40,7 +41,8 @@ import {
   type PlaybookRow,
 } from '../lib/incidents'
 import { useAsync } from '../lib/useAsync'
-import { EmptyState, Label } from './ui'
+import EmptyIncidentState from './incidents/EmptyIncidentState'
+import { Label } from './ui'
 
 /**
  * Intervention + impact workspace (Phase 4): the approved intervention,
@@ -57,25 +59,25 @@ import { EmptyState, Label } from './ui'
  */
 
 const OP_STYLE: Record<string, string> = {
-  drafted: 'bg-ink-100 text-ink-600',
-  awaiting_approval: 'bg-amber-100 text-amber-800',
-  assigned: 'bg-sky-100 text-sky-800',
-  accepted: 'bg-sky-100 text-sky-800',
-  in_progress: 'bg-sky-100 text-sky-800',
-  completed: 'bg-ink-200 text-ink-700',
-  verification_pending: 'bg-amber-100 text-amber-800',
-  reopened: 'bg-red-100 text-red-700',
+  drafted: 'bg-slate-100 text-slate-600',
+  awaiting_approval: 'bg-status-warning/10 text-status-warning',
+  assigned: 'bg-status-info/10 text-status-info',
+  accepted: 'bg-status-info/10 text-status-info',
+  in_progress: 'bg-status-info/10 text-status-info',
+  completed: 'bg-slate-200 text-slate-700',
+  verification_pending: 'bg-status-warning/10 text-status-warning',
+  reopened: 'bg-status-critical/10 text-status-critical',
 }
 
 const OUTCOME_STYLE: Record<string, string> = {
-  effective: 'bg-green-100 text-green-800',
-  partly_effective: 'bg-lime-100 text-lime-800',
-  ineffective: 'bg-red-100 text-red-700',
-  inconclusive: 'bg-ink-100 text-ink-600',
+  effective: 'bg-status-success/10 text-status-success',
+  partly_effective: 'bg-status-warning/10 text-status-warning',
+  ineffective: 'bg-status-critical/10 text-status-critical',
+  inconclusive: 'bg-slate-100 text-slate-600',
 }
 
 function StatusBadge({ status }: { status: ActionWorkflowStatus }) {
-  const cls = isOutcomeStatus(status) ? (OUTCOME_STYLE[status] ?? 'bg-ink-100') : (OP_STYLE[status] ?? 'bg-ink-100')
+  const cls = isOutcomeStatus(status) ? (OUTCOME_STYLE[status] ?? 'bg-slate-100') : (OP_STYLE[status] ?? 'bg-slate-100')
   return (
     <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${cls}`}>
       {WORKFLOW_STATUS_LABEL[status]}
@@ -85,10 +87,10 @@ function StatusBadge({ status }: { status: ActionWorkflowStatus }) {
 
 function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
   return (
-    <section className="border-t border-ink-900/5 px-4 py-3 first:border-t-0">
+    <section className="border-t border-slate-100 px-4 py-3 first:border-t-0">
       <div className="mb-2 flex items-center gap-2">
         <Label dark>{title}</Label>
-        {count != null && <span className="rounded bg-ink-100 px-1.5 text-[10px] font-bold text-ink-600">{count}</span>}
+        {count != null && <span className="rounded bg-slate-100 px-1.5 text-[10px] font-bold text-slate-600">{count}</span>}
       </div>
       {children}
     </section>
@@ -122,24 +124,24 @@ function PlaybookListItem({
   const effectLabel = p.expected_time_to_effect_hours != null ? `~${p.expected_time_to_effect_hours}h to effect` : null
 
   return (
-    <li className="rounded-xl border border-ink-900/10 p-3">
+    <li className="rounded-xl border border-slate-200 p-3">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-sm font-semibold text-ink-900">{p.title}</span>
-        <span className="rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-ink-600">
+        <span className="text-sm font-semibold text-slate-900">{p.title}</span>
+        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600">
           {PLAYBOOK_ACTION_TYPE_LABEL[p.action_type as PlaybookActionType] ?? p.action_type}
         </span>
-        <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-sky-800">
+        <span className="rounded bg-status-info/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-status-info">
           Needs {CONFIDENCE_LABEL[p.min_evidence_level].toLowerCase()}
         </span>
       </div>
-      <p className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-ink-500">
+      <p className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-500">
         <span>{costLabel}</span>
         {deployLabel && <span>{deployLabel}</span>}
         {effectLabel && <span>{effectLabel}</span>}
         <span>{usage.timesUsed === 0 ? 'Not used yet' : `Used ${usage.timesUsed}×`}</span>
       </p>
       {usage.timesUsed > 0 && (
-        <p className="mt-0.5 text-[11px] text-ink-400">
+        <p className="mt-0.5 text-[11px] text-slate-400">
           {usage.effective} effective · {usage.partlyEffective} partly · {usage.ineffective} ineffective ·{' '}
           {usage.inconclusive} inconclusive
           {usage.pending > 0 && ` · ${usage.pending} still in progress`}
@@ -147,7 +149,7 @@ function PlaybookListItem({
       )}
       <ul className="mt-1.5 space-y-0.5">
         {candidate.reasons.map((r, i) => (
-          <li key={i} className="text-[11px] text-ink-600">
+          <li key={i} className="text-[11px] text-slate-600">
             · {r}
           </li>
         ))}
@@ -155,7 +157,7 @@ function PlaybookListItem({
       <button
         type="button"
         onClick={onSelect}
-        className="focus-ring mt-2 rounded-lg bg-brand-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand-800"
+        className="focus-ring mt-2 rounded-lg bg-accent-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-accent-700"
       >
         Use this playbook
       </button>
@@ -245,7 +247,7 @@ function PlaybookPickerDialog({
   }
 
   return (
-    <div className="z-modal fixed inset-0 flex items-end justify-center bg-ink-900/40 p-3 sm:items-center">
+    <div className="z-modal fixed inset-0 flex items-end justify-center bg-slate-900/40 p-3 sm:items-center">
       <div
         role="dialog"
         aria-modal="true"
@@ -254,20 +256,20 @@ function PlaybookPickerDialog({
       >
         {!selected ? (
           <>
-            <h2 className="text-sm font-semibold text-ink-900">Choose an intervention</h2>
-            <p className="mt-0.5 text-xs text-ink-400">
+            <h2 className="text-sm font-semibold text-slate-900">Choose an intervention</h2>
+            <p className="mt-0.5 text-xs text-slate-400">
               Ranked by source match, evidence level, urgency, cost and deployment time - a stated rule, not a model.
             </p>
 
             {playbooks.loading || officers.loading ? (
-              <p className="mt-3 text-xs text-ink-400">Loading playbooks…</p>
+              <p className="mt-3 text-xs text-slate-400">Loading playbooks…</p>
             ) : playbooks.error ? (
               <p className="mt-3 text-xs text-status-critical">{playbooks.error}</p>
             ) : ranked.length === 0 ? (
-              <EmptyState icon="📋">
+              <EmptyIncidentState icon={ClipboardList}>
                 No playbook matches this incident's current evidence level and source yet. You can still create a
                 custom intervention below.
-              </EmptyState>
+              </EmptyIncidentState>
             ) : (
               <ul className="mt-3 space-y-2">
                 {ranked.map((r) => (
@@ -284,18 +286,18 @@ function PlaybookPickerDialog({
               </ul>
             )}
 
-            <div className="mt-4 flex items-center justify-between border-t border-ink-900/5 pt-3">
+            <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
               <button
                 type="button"
                 onClick={onUseCustom}
-                className="focus-ring text-xs font-semibold text-brand-700 hover:underline"
+                className="focus-ring text-xs font-semibold text-accent-700 hover:underline"
               >
                 Use a custom intervention instead
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="focus-ring rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+                className="focus-ring rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -306,21 +308,21 @@ function PlaybookPickerDialog({
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="focus-ring text-xs font-semibold text-brand-700 hover:underline"
+              className="focus-ring text-xs font-semibold text-accent-700 hover:underline"
             >
               ← Back to playbooks
             </button>
-            <h2 className="mt-2 text-sm font-semibold text-ink-900">{selected.title}</h2>
-            {selected.instructions && <p className="mt-1 text-xs text-ink-600">{selected.instructions}</p>}
+            <h2 className="mt-2 text-sm font-semibold text-slate-900">{selected.title}</h2>
+            {selected.instructions && <p className="mt-1 text-xs text-slate-600">{selected.instructions}</p>}
 
-            <div className="mt-2 rounded-lg bg-ink-50 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">Expected effect</p>
-              <p className="mt-0.5 text-xs text-ink-700">{selected.expected_effect ?? 'Not documented.'}</p>
-              <p className="mt-1 text-[11px] font-semibold text-ink-500">
+            <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Expected effect</p>
+              <p className="mt-0.5 text-xs text-slate-700">{selected.expected_effect ?? 'Not documented.'}</p>
+              <p className="mt-1 text-[11px] font-semibold text-slate-500">
                 {EVIDENCE_BASIS_LABEL[selected.evidence_basis ?? ''] ?? 'Basis not recorded'} - not a guarantee.
               </p>
               {selected.known_limitations && (
-                <p className="mt-1 text-[11px] text-ink-500">Known limitations: {selected.known_limitations}</p>
+                <p className="mt-1 text-[11px] text-slate-500">Known limitations: {selected.known_limitations}</p>
               )}
             </div>
 
@@ -330,60 +332,60 @@ function PlaybookPickerDialog({
               </p>
             )}
 
-            <label className="mt-3 block text-xs font-semibold text-ink-700">
-              Operational notes <span className="font-normal text-ink-400">(the only thing you can edit here - the playbook itself stays unchanged)</span>
+            <label className="mt-3 block text-xs font-semibold text-slate-700">
+              Operational notes <span className="font-normal text-slate-400">(the only thing you can edit here - the playbook itself stays unchanged)</span>
             </label>
             <textarea
               rows={2}
               value={notesOverride}
               onChange={(e) => setNotesOverride(e.target.value)}
               placeholder="Anything specific to this incident the field officer should know"
-              className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-xs"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
             />
 
-            <label className="mt-3 block text-xs font-semibold text-ink-700">Responsible authority</label>
+            <label className="mt-3 block text-xs font-semibold text-slate-700">Responsible authority</label>
             <input
               value={responsibleAgency}
               onChange={(e) => setResponsibleAgency(e.target.value)}
               placeholder="e.g. MCD Zone 3"
-              className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-sm"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
             />
 
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-semibold text-ink-700">Deadline (days)</label>
+                <label className="block text-xs font-semibold text-slate-700">Deadline (days)</label>
                 <input
                   type="number"
                   min={1}
                   value={deadlineDays}
                   onChange={(e) => setDeadlineDays(Math.max(1, Number(e.target.value) || 1))}
-                  className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-sm"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-ink-700">Verify within (hours)</label>
+                <label className="block text-xs font-semibold text-slate-700">Verify within (hours)</label>
                 <input
                   type="number"
                   min={1}
                   value={verificationHours}
                   onChange={(e) => setVerificationHours(Math.max(1, Number(e.target.value) || 1))}
-                  className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-sm"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
                 />
               </div>
             </div>
 
             {!needsApproval && (
               <>
-                <label className="mt-3 block text-xs font-semibold text-ink-700">Assign to (optional now)</label>
+                <label className="mt-3 block text-xs font-semibold text-slate-700">Assign to (optional now)</label>
                 {officerList.length === 0 ? (
-                  <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-ink-600">
+                  <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-slate-600">
                     No field officer covers this ward yet - you can save this as drafted and assign later.
                   </p>
                 ) : (
                   <select
                     value={assignee}
                     onChange={(e) => setAssignee(e.target.value)}
-                    className="focus-ring mt-1 w-full rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-sm"
+                    className="focus-ring mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
                   >
                     <option value="">Leave unassigned for now</option>
                     {officerList.map((o) => (
@@ -402,7 +404,7 @@ function PlaybookPickerDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="focus-ring rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+                className="focus-ring rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -410,7 +412,7 @@ function PlaybookPickerDialog({
                 type="button"
                 disabled={busy}
                 onClick={create}
-                className="focus-ring rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
+                className="focus-ring rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-700 disabled:opacity-50"
               >
                 {busy ? 'Creating…' : 'Create intervention'}
               </button>
@@ -476,16 +478,16 @@ function CreateInterventionDialog({
   }
 
   return (
-    <div className="z-modal fixed inset-0 flex items-end justify-center bg-ink-900/40 p-3 sm:items-center">
+    <div className="z-modal fixed inset-0 flex items-end justify-center bg-slate-900/40 p-3 sm:items-center">
       <div role="dialog" aria-modal="true" aria-label="Create intervention" className="w-full max-w-md rounded-2xl bg-white p-4 shadow-card-lg">
-        <h2 className="text-sm font-semibold text-ink-900">Create an intervention</h2>
-        <p className="mt-0.5 text-xs text-ink-400">Only offered when the incident's evidence level allows it.</p>
+        <h2 className="text-sm font-semibold text-slate-900">Create an intervention</h2>
+        <p className="mt-0.5 text-xs text-slate-400">Only offered when the incident's evidence level allows it.</p>
 
-        <label className="mt-3 block text-xs font-semibold text-ink-700">Action type</label>
+        <label className="mt-3 block text-xs font-semibold text-slate-700">Action type</label>
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="focus-ring mt-1 w-full rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-sm"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
         >
           <option value="inspect">Inspection</option>
           <option value="sprinkle">Preventive - water sprinkling</option>
@@ -499,24 +501,24 @@ function CreateInterventionDialog({
           </p>
         )}
 
-        <label className="mt-3 block text-xs font-semibold text-ink-700">Recommended action</label>
+        <label className="mt-3 block text-xs font-semibold text-slate-700">Recommended action</label>
         <textarea
           rows={2}
           value={recommendedAction}
           onChange={(e) => setRecommendedAction(e.target.value)}
-          className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-xs"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
         />
 
-        <label className="mt-3 block text-xs font-semibold text-ink-700">Responsible authority</label>
+        <label className="mt-3 block text-xs font-semibold text-slate-700">Responsible authority</label>
         <input
           value={responsibleAgency}
           onChange={(e) => setResponsibleAgency(e.target.value)}
           placeholder="e.g. MCD Zone 3"
-          className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-sm"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
         />
 
-        <label className="mt-3 block text-xs font-semibold text-ink-700">Why no playbook was suitable</label>
-        <p className="mt-0.5 text-[11px] text-ink-400">
+        <label className="mt-3 block text-xs font-semibold text-slate-700">Why no playbook was suitable</label>
+        <p className="mt-0.5 text-[11px] text-slate-400">
           This is a custom intervention, not a structured playbook. Required - recorded on the audit trail.
         </p>
         <textarea
@@ -524,46 +526,46 @@ function CreateInterventionDialog({
           value={customReason}
           onChange={(e) => setCustomReason(e.target.value)}
           placeholder="e.g. No playbook covers this source category yet"
-          className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-xs"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
         />
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-semibold text-ink-700">Deadline (days)</label>
+            <label className="block text-xs font-semibold text-slate-700">Deadline (days)</label>
             <input
               type="number"
               min={1}
               value={deadlineDays}
               onChange={(e) => setDeadlineDays(Math.max(1, Number(e.target.value) || 1))}
-              className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-sm"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-ink-700">Verify within (hours)</label>
+            <label className="block text-xs font-semibold text-slate-700">Verify within (hours)</label>
             <input
               type="number"
               min={1}
               value={verificationHours}
               onChange={(e) => setVerificationHours(Math.max(1, Number(e.target.value) || 1))}
-              className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-sm"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
             />
           </div>
         </div>
 
         {!needsApproval && (
           <>
-            <label className="mt-3 block text-xs font-semibold text-ink-700">Assign to (optional now)</label>
+            <label className="mt-3 block text-xs font-semibold text-slate-700">Assign to (optional now)</label>
             {officers.loading ? (
-              <p className="mt-1 text-xs text-ink-400">Loading officers…</p>
+              <p className="mt-1 text-xs text-slate-400">Loading officers…</p>
             ) : officerList.length === 0 ? (
-              <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-ink-600">
+              <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-slate-600">
                 No field officer covers this ward yet - you can save this as drafted and assign later.
               </p>
             ) : (
               <select
                 value={assignee}
                 onChange={(e) => setAssignee(e.target.value)}
-                className="focus-ring mt-1 w-full rounded-lg border border-ink-200 bg-white px-2.5 py-2 text-sm"
+                className="focus-ring mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
               >
                 <option value="">Leave unassigned for now</option>
                 {officerList.map((o) => (
@@ -582,7 +584,7 @@ function CreateInterventionDialog({
           <button
             type="button"
             onClick={onClose}
-            className="focus-ring rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+            className="focus-ring rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -590,7 +592,7 @@ function CreateInterventionDialog({
             type="button"
             disabled={busy || !recommendedAction.trim() || !responsibleAgency.trim() || !customReason.trim()}
             onClick={create}
-            className="focus-ring rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
+            className="focus-ring rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-700 disabled:opacity-50"
           >
             {busy ? 'Creating…' : 'Create intervention'}
           </button>
@@ -650,47 +652,47 @@ function RecordImpactDialog({
   }
 
   return (
-    <div className="z-modal fixed inset-0 flex items-end justify-center bg-ink-900/40 p-3 sm:items-center">
+    <div className="z-modal fixed inset-0 flex items-end justify-center bg-slate-900/40 p-3 sm:items-center">
       <div role="dialog" aria-modal="true" aria-label="Record impact evaluation" className="w-full max-w-md rounded-2xl bg-white p-4 shadow-card-lg">
-        <h2 className="text-sm font-semibold text-ink-900">Record before/after impact</h2>
-        <p className="mt-0.5 text-xs text-ink-400">{BEFORE_AFTER_LIMITATION}</p>
+        <h2 className="text-sm font-semibold text-slate-900">Record before/after impact</h2>
+        <p className="mt-0.5 text-xs text-slate-400">{BEFORE_AFTER_LIMITATION}</p>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-semibold text-ink-700">Before (PM2.5 µg/m³)</label>
+            <label className="block text-xs font-semibold text-slate-700">Before (PM2.5 µg/m³)</label>
             <input
               type="number"
               value={before}
               onChange={(e) => setBefore(e.target.value)}
               placeholder="Leave blank if unknown"
-              className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-sm"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-ink-700">After (PM2.5 µg/m³)</label>
+            <label className="block text-xs font-semibold text-slate-700">After (PM2.5 µg/m³)</label>
             <input
               type="number"
               value={after}
               onChange={(e) => setAfter(e.target.value)}
               placeholder="Leave blank if unknown"
-              className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-sm"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
             />
           </div>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-semibold text-ink-700">Observation window (h)</label>
+            <label className="block text-xs font-semibold text-slate-700">Observation window (h)</label>
             <input
               type="number"
               min={1}
               value={windowHours}
               onChange={(e) => setWindowHours(Math.max(1, Number(e.target.value) || 1))}
-              className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-sm"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-ink-700">
+            <label className="block text-xs font-semibold text-slate-700">
               Data completeness ({Math.round(completeness * 100)}%)
             </label>
             <input
@@ -705,35 +707,35 @@ function RecordImpactDialog({
           </div>
         </div>
 
-        <label className="mt-3 block text-xs font-semibold text-ink-700">Station / sensor used</label>
+        <label className="mt-3 block text-xs font-semibold text-slate-700">Station / sensor used</label>
         <input
           value={station}
           onChange={(e) => setStation(e.target.value)}
           placeholder="e.g. CPCB Anand Vihar"
-          className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-sm"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
         />
 
-        <label className="mt-3 block text-xs font-semibold text-ink-700">Notes (optional)</label>
+        <label className="mt-3 block text-xs font-semibold text-slate-700">Notes (optional)</label>
         <textarea
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="focus-ring mt-1 w-full rounded-lg border border-ink-200 px-2.5 py-2 text-xs"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
         />
 
         {/* Preview only - the database computes the real outcome from the same
             rule. Shown so the operator isn't surprised, never as the source of
             truth (see recordImpactEvaluation's docstring). */}
-        <div className="mt-3 rounded-lg bg-ink-50 px-3 py-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">Expected result</p>
-          <p className="mt-0.5 text-sm font-semibold text-ink-800">
+        <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Expected result</p>
+          <p className="mt-0.5 text-sm font-semibold text-slate-800">
             {IMPACT_OUTCOME_LABEL[preview.outcome]}
             {preview.pctChange != null && (
-              <span className="ml-1 font-normal text-ink-500">({preview.pctChange.toFixed(0)}% change)</span>
+              <span className="ml-1 font-normal text-slate-500">({preview.pctChange.toFixed(0)}% change)</span>
             )}
           </p>
           {completeness < MIN_COMPLETENESS_FOR_RESULT && (
-            <p className="mt-0.5 text-[11px] text-ink-500">
+            <p className="mt-0.5 text-[11px] text-slate-500">
               Below {Math.round(MIN_COMPLETENESS_FOR_RESULT * 100)}% completeness always reads inconclusive, regardless
               of the readings.
             </p>
@@ -746,7 +748,7 @@ function RecordImpactDialog({
           <button
             type="button"
             onClick={onClose}
-            className="focus-ring rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+            className="focus-ring rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -754,7 +756,7 @@ function RecordImpactDialog({
             type="button"
             disabled={busy}
             onClick={submit}
-            className="focus-ring rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
+            className="focus-ring rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-700 disabled:opacity-50"
           >
             {busy ? 'Recording…' : 'Record evaluation'}
           </button>
@@ -825,64 +827,64 @@ function InterventionCard({
   }
 
   return (
-    <li className="rounded-xl border border-ink-900/10 bg-white p-3">
+    <li className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-semibold capitalize text-ink-800">{action.type ?? 'intervention'}</span>
+        <span className="text-sm font-semibold capitalize text-slate-800">{action.type ?? 'intervention'}</span>
         <StatusBadge status={action.workflow_status} />
         {action.playbook_id == null && (
-          <span className="rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-ink-500">Custom intervention</span>
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500">Custom intervention</span>
         )}
         {needsApproval && (
           <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${isApproved ? 'bg-green-100 text-green-800' : 'bg-status-warning/20 text-status-warning'}`}
+            className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${isApproved ? 'bg-status-success/10 text-status-success' : 'bg-status-warning/20 text-status-warning'}`}
           >
             {isApproved ? 'Approved' : 'Needs approval'}
           </span>
         )}
       </div>
 
-      {action.recommended_action && <p className="mt-1.5 text-sm text-ink-700">{action.recommended_action}</p>}
+      {action.recommended_action && <p className="mt-1.5 text-sm text-slate-700">{action.recommended_action}</p>}
       {action.playbook_id != null && (
-        <p className="mt-1 text-[11px] text-ink-400">
+        <p className="mt-1 text-[11px] text-slate-400">
           From playbook #{action.playbook_id}
           {action.playbook_version != null && ` (v${action.playbook_version} at selection)`}
         </p>
       )}
       {action.playbook_notes_override && (
-        <p className="mt-1 rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs italic text-brand-800">
+        <p className="mt-1 rounded-lg bg-accent-50 px-2.5 py-1.5 text-xs italic text-accent-800">
           {action.playbook_notes_override}
         </p>
       )}
       {action.playbook_id == null && action.custom_reason && (
-        <p className="mt-1 text-[11px] text-ink-500">
-          <span className="font-semibold text-ink-600">Why no playbook: </span>
+        <p className="mt-1 text-[11px] text-slate-500">
+          <span className="font-semibold text-slate-600">Why no playbook: </span>
           {action.custom_reason}
         </p>
       )}
 
       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
         <div>
-          <dt className="text-ink-400">Responsible authority</dt>
-          <dd className="font-semibold text-ink-700">{action.responsible_agency ?? '-'}</dd>
+          <dt className="text-slate-400">Responsible authority</dt>
+          <dd className="font-semibold text-slate-700">{action.responsible_agency ?? '-'}</dd>
         </div>
         <div>
-          <dt className="text-ink-400">Deadline</dt>
-          <dd className="font-semibold text-ink-700">{action.deadline ? new Date(action.deadline).toLocaleDateString() : '-'}</dd>
+          <dt className="text-slate-400">Deadline</dt>
+          <dd className="font-semibold text-slate-700">{action.deadline ? new Date(action.deadline).toLocaleDateString() : '-'}</dd>
         </div>
         <div>
-          <dt className="text-ink-400">Assignee</dt>
-          <dd className="font-semibold text-ink-700">{action.assigned_to ? action.assigned_to.slice(0, 8) : 'Unassigned'}</dd>
+          <dt className="text-slate-400">Assignee</dt>
+          <dd className="font-semibold text-slate-700">{action.assigned_to ? action.assigned_to.slice(0, 8) : 'Unassigned'}</dd>
         </div>
         <div>
-          <dt className="text-ink-400">Expected verification</dt>
-          <dd className="font-semibold text-ink-700">
+          <dt className="text-slate-400">Expected verification</dt>
+          <dd className="font-semibold text-slate-700">
             {action.expected_verification_hours ? `within ${action.expected_verification_hours}h` : '-'}
           </dd>
         </div>
       </dl>
 
       {isApproved && (
-        <p className="mt-1.5 text-[11px] text-ink-500">
+        <p className="mt-1.5 text-[11px] text-slate-500">
           Approved by {action.approved_by?.slice(0, 8)} ({action.approval_level ?? 'command'}) ·{' '}
           {action.approved_at && new Date(action.approved_at).toLocaleString()}
         </p>
@@ -893,24 +895,24 @@ function InterventionCard({
         </p>
       )}
       {action.source_confirmed != null && (
-        <p className="mt-1.5 text-[11px] text-ink-500">
+        <p className="mt-1.5 text-[11px] text-slate-500">
           Field officer {action.source_confirmed ? 'confirmed' : 'did not confirm'} the source on site.
         </p>
       )}
 
       {/* ── operational evidence ── */}
       {evidence.length > 0 && (
-        <div className="mt-2 border-t border-ink-900/5 pt-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Operational evidence</p>
+        <div className="mt-2 border-t border-slate-100 pt-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Operational evidence</p>
           <ul className="mt-1 space-y-1">
             {evidence.map((e) => (
-              <li key={e.id} className="flex flex-wrap items-center gap-2 text-[11px] text-ink-600">
-                <span className="rounded bg-ink-100 px-1.5 py-0.5 font-semibold uppercase text-ink-600">
+              <li key={e.id} className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 font-semibold uppercase text-slate-600">
                   {e.evidence_type.replace(/_/g, ' ')}
                 </span>
-                <span className="text-ink-400">{new Date(e.captured_at).toLocaleString()}</span>
+                <span className="text-slate-400">{new Date(e.captured_at).toLocaleString()}</span>
                 {e.photo_url && (
-                  <a href={e.photo_url} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 hover:underline">
+                  <a href={e.photo_url} target="_blank" rel="noreferrer" className="font-semibold text-accent-700 hover:underline">
                     View photo →
                   </a>
                 )}
@@ -921,13 +923,13 @@ function InterventionCard({
       )}
 
       {/* ── controls ── */}
-      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink-900/5 pt-2.5">
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2.5">
         {needsApproval && !isApproved && (
           <button
             type="button"
             disabled={busy}
             onClick={approve}
-            className="focus-ring rounded-lg bg-brand-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
+            className="focus-ring rounded-lg bg-accent-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-accent-700 disabled:opacity-50"
           >
             Approve
           </button>
@@ -938,7 +940,7 @@ function InterventionCard({
               <select
                 value={assignee}
                 onChange={(e) => setAssignee(e.target.value)}
-                className="focus-ring rounded-lg border border-ink-200 px-2 py-1 text-[11px]"
+                className="focus-ring rounded-lg border border-slate-200 px-2 py-1 text-[11px]"
               >
                 <option value="">{officers.loading ? 'Loading…' : 'Select officer…'}</option>
                 {officerList.map((o) => (
@@ -951,7 +953,7 @@ function InterventionCard({
                 type="button"
                 disabled={!assignee || busy}
                 onClick={assign}
-                className="focus-ring rounded-lg bg-brand-700 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                className="focus-ring rounded-lg bg-accent-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
               >
                 Assign
               </button>
@@ -960,7 +962,7 @@ function InterventionCard({
             <button
               type="button"
               onClick={() => setAssignPicker(true)}
-              className="focus-ring rounded-lg border border-ink-200 px-2.5 py-1 text-[11px] font-semibold text-ink-700 hover:bg-ink-50"
+              className="focus-ring rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
             >
               Assign officer
             </button>
@@ -971,7 +973,7 @@ function InterventionCard({
             type="button"
             disabled={busy}
             onClick={advance}
-            className="focus-ring rounded-lg border border-ink-200 px-2.5 py-1 text-[11px] font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-50"
+            className="focus-ring rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             Mark {WORKFLOW_STATUS_LABEL[next].toLowerCase()}
           </button>
@@ -1024,14 +1026,14 @@ export default function InterventionPanel({ detail, onRefresh }: { detail: Incid
   )
 
   return (
-    <div className="divide-y divide-ink-900/5">
+    <div className="divide-y divide-slate-100">
       {/* ── intervention(s) ── */}
       <Section title="Intervention" count={interventions.length}>
         {interventions.length === 0 ? (
           blocked ? (
-            <EmptyState icon="🔒">{blocked}</EmptyState>
+            <EmptyIncidentState icon={Lock}>{blocked}</EmptyIncidentState>
           ) : (
-            <EmptyState icon="🛠️">No intervention created yet.</EmptyState>
+            <EmptyIncidentState icon={Wrench}>No intervention created yet.</EmptyIncidentState>
           )
         ) : (
           <ul className="space-y-2">
@@ -1051,7 +1053,7 @@ export default function InterventionPanel({ detail, onRefresh }: { detail: Incid
           disabled={!!blocked}
           title={blocked ?? undefined}
           onClick={() => setPickerOpen(true)}
-          className="focus-ring mt-2 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-semibold text-ink-700 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="focus-ring mt-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           + New intervention
         </button>
@@ -1060,42 +1062,42 @@ export default function InterventionPanel({ detail, onRefresh }: { detail: Incid
       {/* ── before/after impact result ── */}
       <Section title="Impact result" count={impactEvaluations.length}>
         {impactEvaluations.length === 0 ? (
-          <EmptyState icon="📊">
+          <EmptyIncidentState icon={BarChart3}>
             No impact evaluation recorded yet - completing an action does not by itself mean pollution was reduced.
-          </EmptyState>
+          </EmptyIncidentState>
         ) : (
           <ul className="space-y-2">
             {impactEvaluations.map((e) => (
-              <li key={e.id} className="rounded-lg bg-ink-50/60 p-2.5">
+              <li key={e.id} className="rounded-lg bg-slate-50 p-2.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${OUTCOME_STYLE[e.outcome] ?? 'bg-ink-100'}`}>
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${OUTCOME_STYLE[e.outcome] ?? 'bg-slate-100'}`}>
                     {IMPACT_OUTCOME_LABEL[e.outcome as keyof typeof IMPACT_OUTCOME_LABEL] ?? e.outcome}
                   </span>
-                  <span className="text-[11px] text-ink-400">{new Date(e.evaluated_at).toLocaleString()}</span>
+                  <span className="text-[11px] text-slate-400">{new Date(e.evaluated_at).toLocaleString()}</span>
                 </div>
                 <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] sm:grid-cols-4">
                   <div>
-                    <dt className="text-ink-400">Before</dt>
-                    <dd className="font-semibold text-ink-700">{e.before_value ?? '-'}</dd>
+                    <dt className="text-slate-400">Before</dt>
+                    <dd className="font-semibold text-slate-700">{e.before_value ?? '-'}</dd>
                   </div>
                   <div>
-                    <dt className="text-ink-400">After</dt>
-                    <dd className="font-semibold text-ink-700">{e.after_value ?? '-'}</dd>
+                    <dt className="text-slate-400">After</dt>
+                    <dd className="font-semibold text-slate-700">{e.after_value ?? '-'}</dd>
                   </div>
                   <div>
-                    <dt className="text-ink-400">Change</dt>
-                    <dd className="font-semibold text-ink-700">{e.pct_change != null ? `${e.pct_change.toFixed(0)}%` : '-'}</dd>
+                    <dt className="text-slate-400">Change</dt>
+                    <dd className="font-semibold text-slate-700">{e.pct_change != null ? `${e.pct_change.toFixed(0)}%` : '-'}</dd>
                   </div>
                   <div>
-                    <dt className="text-ink-400">Data completeness</dt>
-                    <dd className="font-semibold text-ink-700">
+                    <dt className="text-slate-400">Data completeness</dt>
+                    <dd className="font-semibold text-slate-700">
                       {e.data_completeness != null ? `${Math.round(e.data_completeness * 100)}%` : '-'}
                     </dd>
                   </div>
                 </dl>
-                {e.station_label && <p className="mt-1 text-[11px] text-ink-500">Station: {e.station_label}</p>}
-                {e.method_limitation && <p className="mt-1 text-[11px] italic text-ink-400">{e.method_limitation}</p>}
-                {e.notes && <p className="mt-1 text-[11px] text-ink-500">{e.notes}</p>}
+                {e.station_label && <p className="mt-1 text-[11px] text-slate-500">Station: {e.station_label}</p>}
+                {e.method_limitation && <p className="mt-1 text-[11px] italic text-slate-400">{e.method_limitation}</p>}
+                {e.notes && <p className="mt-1 text-[11px] text-slate-500">{e.notes}</p>}
               </li>
             ))}
           </ul>
@@ -1105,22 +1107,22 @@ export default function InterventionPanel({ detail, onRefresh }: { detail: Incid
       {/* ── citizen verification ── */}
       <Section title="Citizen verification" count={citizenAnswers.length}>
         {citizenAnswers.length === 0 ? (
-          <p className="text-xs text-ink-500">No citizen has reported on the action outcome yet.</p>
+          <p className="text-xs text-slate-500">No citizen has reported on the action outcome yet.</p>
         ) : (
           <ul className="space-y-1.5">
             {citizenAnswers.map((e) => {
               const answer = (e.payload as Record<string, unknown>).citizen_action_answer as CitizenActionAnswer
               return (
-                <li key={e.id} className="flex items-center gap-2 text-xs text-ink-700">
+                <li key={e.id} className="flex items-center gap-2 text-xs text-slate-700">
                   <span aria-hidden>👤</span>
                   <span>{CITIZEN_ACTION_ANSWER_LABEL[answer] ?? answer}</span>
-                  <span className="text-ink-400">{new Date(e.collected_at).toLocaleDateString()}</span>
+                  <span className="text-slate-400">{new Date(e.collected_at).toLocaleDateString()}</span>
                 </li>
               )
             })}
           </ul>
         )}
-        <p className="mt-2 text-[11px] text-ink-400">
+        <p className="mt-2 text-[11px] text-slate-400">
           A citizen's confirmation supports the result but does not independently prove pollution reduction.
         </p>
       </Section>

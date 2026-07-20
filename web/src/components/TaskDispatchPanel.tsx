@@ -42,7 +42,7 @@ import { Label, UnavailableBadge } from './ui'
 function RoutingConfidenceBadge({ level }: { level: RoutingConfidenceLevel }) {
   const styles: Record<RoutingConfidenceLevel, string> = {
     confirmed: 'bg-status-success/10 text-status-success',
-    probable: 'bg-brand-100 text-brand-700',
+    probable: 'bg-accent-100 text-accent-700',
     disputed: 'bg-status-warning/10 text-status-warning',
     unresolved: 'bg-status-critical/10 text-status-critical',
   }
@@ -153,12 +153,12 @@ function DispatchRow({
   const isTerminal = dispatch != null && ['completed', 'verification_pending', 'cancelled', 'rejected'].includes(dispatch.status)
 
   return (
-    <li className="rounded-lg bg-ink-50/60 p-2.5">
+    <li className="rounded-lg bg-slate-50 p-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-semibold capitalize text-ink-800">{actionType?.replace(/_/g, ' ') ?? 'Intervention'}</span>
+        <span className="text-sm font-semibold capitalize text-slate-800">{actionType?.replace(/_/g, ' ') ?? 'Intervention'}</span>
         <div className="flex items-center gap-1.5">
           <RoutingConfidenceBadge level={dispatch?.routing_confidence ?? preview?.routing_confidence ?? 'unresolved'} />
-          <span className="rounded bg-ink-200/60 px-1.5 py-0.5 text-[10px] font-bold uppercase text-ink-700">
+          <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-700">
             {dispatch ? TASK_DISPATCH_STATUS_LABEL[dispatch.status] : 'Not yet dispatched'}
           </span>
         </div>
@@ -166,20 +166,20 @@ function DispatchRow({
 
       <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
         <div>
-          <dt className="text-ink-400">Responsible agency</dt>
-          <dd className="font-semibold text-ink-700">
+          <dt className="text-slate-400">Responsible agency</dt>
+          <dd className="font-semibold text-slate-700">
             {dispatch?.responsible_agency ?? preview?.responsible_agency ?? '-'}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Officer / team</dt>
-          <dd className="font-semibold text-ink-700">
+          <dt className="text-slate-400">Officer / team</dt>
+          <dd className="font-semibold text-slate-700">
             {dispatch?.primary_team ?? preview?.primary_team ?? (dispatch?.primary_officer ? 'Assigned officer' : '-')}
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">SLA</dt>
-          <dd className="font-semibold text-ink-700">
+          <dt className="text-slate-400">SLA</dt>
+          <dd className="font-semibold text-slate-700">
             {dispatch && !isTerminal
               ? slaCountdownLabel(
                   dispatch.sla_ack_due_at ?? dispatch.sla_accept_due_at ?? dispatch.sla_arrival_due_at ?? dispatch.sla_completion_due_at,
@@ -188,8 +188,8 @@ function DispatchRow({
           </dd>
         </div>
         <div>
-          <dt className="text-ink-400">Escalation level</dt>
-          <dd className="font-semibold text-ink-700">{dispatch ? dispatch.escalation_level : '-'}</dd>
+          <dt className="text-slate-400">Escalation level</dt>
+          <dd className="font-semibold text-slate-700">{dispatch ? dispatch.escalation_level : '-'}</dd>
         </div>
       </dl>
 
@@ -209,12 +209,12 @@ function DispatchRow({
       {!dispatch && preview?.routing_confidence === 'unresolved' && (
         <div className="mt-1.5 flex items-start gap-2 rounded-lg bg-status-critical/10 px-2.5 py-1.5">
           <UnavailableBadge label="Unresolved routing" />
-          <p className="text-[11px] text-ink-600">No matching responsible unit found - this will not dispatch automatically.</p>
+          <p className="text-[11px] text-slate-600">No matching responsible unit found - this will not dispatch automatically.</p>
         </div>
       )}
 
       {notifs && (
-        <ul className="mt-1.5 space-y-0.5 text-[11px] text-ink-500">
+        <ul className="mt-1.5 space-y-0.5 text-[11px] text-slate-500">
           {notifs.map((n) => (
             <li key={n.id}>
               {NOTIFICATION_CHANNEL_LABEL[n.channel]} - {NOTIFICATION_STATUS_LABEL[n.status]}
@@ -226,8 +226,8 @@ function DispatchRow({
       )}
 
       {showDispute && registry && (
-        <div className="mt-1.5 rounded-lg border border-ink-200 bg-white p-2">
-          <p className="mb-1 text-[11px] font-semibold text-ink-700">Select the correct responsible unit:</p>
+        <div className="mt-1.5 rounded-lg border border-slate-200 bg-white p-2">
+          <p className="mb-1 text-[11px] font-semibold text-slate-700">Select the correct responsible unit:</p>
           <ul className="space-y-1">
             {registry.map((r) => (
               <li key={r.id}>
@@ -235,7 +235,7 @@ function DispatchRow({
                   type="button"
                   disabled={busy}
                   onClick={() => handleResolveDispute(r.id)}
-                  className="focus-ring w-full rounded border border-ink-200 px-2 py-1 text-left text-[11px] hover:bg-ink-50 disabled:opacity-50"
+                  className="focus-ring w-full rounded border border-slate-200 px-2 py-1 text-left text-[11px] hover:bg-slate-50 disabled:opacity-50"
                 >
                   {r.regulating_authority ?? 'Unnamed unit'} {r.division_zone ? `· ${r.division_zone}` : ''}
                   {r.is_disputed ? ' (also disputed)' : ''}
@@ -252,7 +252,7 @@ function DispatchRow({
             type="button"
             disabled={busy}
             onClick={dispatch?.status === 'awaiting_approval' ? handleApproveAndDispatch : handleDispatch}
-            className="focus-ring rounded border border-ink-200 px-2 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-white disabled:opacity-50"
+            className="focus-ring rounded border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-white disabled:opacity-50"
           >
             {dispatch?.status === 'awaiting_approval' ? 'Approve & dispatch' : 'Preview & dispatch'}
           </button>
@@ -275,7 +275,7 @@ function DispatchRow({
             type="button"
             disabled={busy}
             onClick={handleEscalate}
-            className="focus-ring rounded border border-ink-200 px-2 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-white disabled:opacity-50"
+            className="focus-ring rounded border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-white disabled:opacity-50"
           >
             Escalate
           </button>
@@ -294,7 +294,7 @@ function DispatchRow({
           <button
             type="button"
             onClick={loadNotifs}
-            className="focus-ring rounded border border-ink-200 px-2 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-white"
+            className="focus-ring rounded border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-white"
           >
             {notifs ? 'Refresh delivery status' : 'Show delivery status'}
           </button>
@@ -342,7 +342,7 @@ export default function TaskDispatchPanel({ detail, onRefresh }: { detail: Incid
   }
 
   return (
-    <section className="border-t border-ink-900/5 px-4 py-3">
+    <section className="border-t border-slate-100 px-4 py-3">
       <div className="mb-1 flex items-center justify-between gap-2">
         <Label dark>Operations</Label>
         {session && (
@@ -350,7 +350,7 @@ export default function TaskDispatchPanel({ detail, onRefresh }: { detail: Incid
             type="button"
             disabled={escalating}
             onClick={runEscalation}
-            className="focus-ring rounded border border-ink-200 px-2 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-white disabled:opacity-50"
+            className="focus-ring rounded border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-white disabled:opacity-50"
           >
             Check for overdue tasks
           </button>
