@@ -1,234 +1,229 @@
-import { useEffect, useState } from 'react'
-import { aqiLevel } from '../components/AqiBadge'
+import { useState } from 'react'
+import { AlertCircle, Clock, Clock3, MapPin, Radio, RefreshCw, ShieldCheck, TrendingUp, Truck } from 'lucide-react'
 import AppShell from '../components/AppShell'
-import MapView, { type WardMarker } from '../components/MapView'
-import { Card, CardHeader, EmptyState, Skeleton, Stat } from '../components/ui'
+import { Card, ErrorState, Skeleton, StaleBadge } from '../components/ui'
+import KpiStrip, { type KpiItem } from '../components/overview/KpiStrip'
+import PriorityAlertsPanel from '../components/overview/PriorityAlertsPanel'
+import OperationalSummaryPanel from '../components/overview/OperationalSummaryPanel'
+import HotspotsRiskTable, { type Pollutant } from '../components/overview/HotspotsRiskTable'
+import SourceMixPanel from '../components/overview/SourceMixPanel'
+import TeamAllocationPanel from '../components/overview/TeamAllocationPanel'
+import SensorHealthSnapshot from '../components/overview/SensorHealthSnapshot'
 import {
   allocateTeams,
   fetchAllForecasts,
   fetchAllWardsAqi,
+  fetchForecastAccuracySummary,
   fetchGatiMetrics,
-  type Allocation,
-  type GatiMetrics,
-  type WardForecastSummary,
-  type WardSummary,
 } from '../lib/data'
+import { listActiveTaskDispatches } from '../lib/incidents'
+import { fetchStationHealth } from '../lib/ops'
+import {
+  bucketDispatchSla,
+  rollupStationHealth,
+  severeWardsWithin,
+  tallySourceMix,
+  type TimeWindowHours,
+} from '../lib/overviewRules'
+import { useAsync } from '../lib/useAsync'
 
-function timeAgo(ts: string | null): string {
-  if (!ts) return '-'
-  const h = Math.floor((Date.now() - new Date(ts).getTime()) / 3_600_000)
-  return h < 1 ? '<1h' : `${h}h`
-}
+const WINDOW_OPTIONS: TimeWindowHours[] = [12, 24, 36, 48]
 
-function AqiPill({ aqi }: { aqi: number | null }) {
-  const level = aqiLevel(aqi)
-  return (
-    <span
-      className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold tabular-nums"
-      style={{ backgroundColor: `${level.hex}1f`, color: level.hex }}
-    >
-      {aqi ?? '-'}
-    </span>
-  )
-}
-
+/**
+ * Overview — the commander's daily City Command Dashboard (Phase 13 redesign).
+ * A thin composition shell: one parallel fetch, all derivation lives in
+ * overviewRules.ts (pure functions), all presentation lives in
+ * components/overview/*. Every KPI here comes from a function that already
+ * existed elsewhere in the app (Tasks/Sensors/Analytics) — this page adds no
+ * new data source, only a single ranked, cross-referenced read of them.
+ */
 export default function CommandView() {
-  const [wards, setWards] = useState<WardSummary[]>([])
-  const [markers, setMarkers] = useState<WardMarker[]>([])
-  const [forecasts, setForecasts] = useState<Map<number, WardForecastSummary>>(new Map())
-  const [metrics, setMetrics] = useState<GatiMetrics | null>(null)
+  const [pollutant, setPollutant] = useState<Pollutant>('aqi')
+  const [windowHours, setWindowHours] = useState<TimeWindowHours>(36)
   const [teams, setTeams] = useState(6)
-  const [loading, setLoading] = useState(true)
+  const [selectedWardId, setSelectedWardId] = useState<number | null>(null)
 
-  useEffect(() => {
-    Promise.all([fetchAllWardsAqi(), fetchAllForecasts(), fetchGatiMetrics()]).then(([wardData, fc, m]) => {
-      const sorted = [...wardData].sort((a, b) => {
-        if (a.aqi === null && b.aqi === null) return 0
-        if (a.aqi === null) return 1
-        if (b.aqi === null) return -1
-        return b.aqi - a.aqi
-      })
-      setWards(sorted)
-      setMarkers(
-        wardData.filter((w) => w.lat != null && w.lng != null)
-          .map((w) => ({ id: w.id, name: w.name, lat: w.lat!, lng: w.lng!, aqi: w.aqi })),
-      )
-      setForecasts(fc); setMetrics(m); setLoading(false)
-    })
-  }, [])
-
-  const grapAlerts = [...forecasts.values()]
-    .filter((f) => f.hoursToSevere != null && f.hoursToSevere <= 36)
-    .map((f) => ({ ...f, name: wards.find((w) => w.id === f.wardId)?.name ?? `Ward ${f.wardId}` }))
-    .sort((a, b) => (a.hoursToSevere ?? 99) - (b.hoursToSevere ?? 99))
-
-  const allocation: Allocation[] = allocateTeams(
-    wards.map((w) => ({ id: w.id, name: w.name })), forecasts, teams,
+  const state = useAsync(
+    () =>
+      Promise.all([
+        fetchAllWardsAqi(),
+        fetchAllForecasts(),
+        fetchGatiMetrics(),
+        listActiveTaskDispatches({ offset: 0, pageSize: 200 }),
+        fetchStationHealth(),
+        fetchForecastAccuracySummary(),
+      ]),
+    [],
   )
-  const activeAllocation = allocation.filter((a) => a.teams > 0)
 
   return (
     <AppShell subtitle="Overview">
       <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50 p-3 sm:p-4">
-        {/* ── KPI summary row ── */}
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
-          <Stat
-            value={metrics?.medianHours != null ? `${metrics.medianHours.toFixed(1)}h` : '-'}
-            label="Median time to action"
-            accent="text-accent-700"
-          />
-          <Stat value={metrics?.openCount ?? 0} label="Open incidents" />
-          <Stat value={metrics?.resolvedCount ?? 0} label="Resolved" accent="text-status-success" />
-          <Stat
-            value={grapAlerts.length}
-            label="Severe within 36h"
-            accent={grapAlerts.length > 0 ? 'text-status-critical' : 'text-slate-900'}
-          />
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
+          <div>
+            <h1 className="text-base font-bold text-slate-900">Overview</h1>
+            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+              <MapPin className="h-3 w-3" aria-hidden />
+              Delhi City Pack
+              {state.stale && <StaleBadge />}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-0.5">
+              {(['aqi', 'pm25'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPollutant(p)}
+                  className={`focus-ring rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                    pollutant === p ? 'bg-accent-500 text-white' : 'text-slate-500 hover:bg-slate-100'
+                  }`}
+                >
+                  {p === 'aqi' ? 'AQI' : 'PM2.5'}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-0.5">
+              <Clock className="ml-1.5 h-3.5 w-3.5 text-slate-400" aria-hidden />
+              {WINDOW_OPTIONS.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setWindowHours(h)}
+                  className={`focus-ring rounded-md px-2 py-1 text-xs font-semibold transition ${
+                    windowHours === h ? 'bg-accent-500 text-white' : 'text-slate-500 hover:bg-slate-100'
+                  }`}
+                >
+                  {h}h
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => state.refresh()}
+              disabled={state.refreshing}
+              className="focus-ring flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${state.refreshing ? 'animate-spin' : ''}`} aria-hidden />
+              Refresh
+            </button>
+          </div>
         </div>
 
-        {/* ── Predictive alerts ── */}
-        <Card>
-          <CardHeader title="Predictive alerts" subtitle="Wards forecast to cross severe within 36 hours" />
-          {loading ? (
-            <div className="space-y-2 p-4">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
+        {state.loading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Skeleton className="h-64 rounded-xl" />
+              <Skeleton className="h-64 rounded-xl" />
             </div>
-          ) : grapAlerts.length === 0 ? (
-            <EmptyState icon="✅">No wards are currently trending toward severe within 36h.</EmptyState>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {grapAlerts.map((a) => (
-                <li key={a.wardId} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                  <span className="flex items-center gap-2 font-medium text-slate-800">
-                    <span className="h-1.5 w-1.5 flex-shrink-0 animate-pulse rounded-full bg-status-critical" />
-                    {a.name}
-                  </span>
-                  <span className="tabular-nums text-slate-400">
-                    peak {Math.round(a.peakPred ?? 0)} · in {a.hoursToSevere}h
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        {/* ── Team allocation ── */}
-        <Card>
-          <CardHeader
-            title="Team allocation"
-            subtitle="Weighted by predicted local excess"
-            right={
-              <div className="flex items-center gap-2 text-sm">
-                <label htmlFor="teams" className="text-xs font-medium text-slate-500">
-                  Teams
-                </label>
-                <input
-                  id="teams"
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={teams}
-                  onChange={(e) => setTeams(Math.max(1, Number(e.target.value) || 1))}
-                  className="focus-ring w-16 rounded-lg border border-slate-200 px-2 py-1 text-center text-sm text-slate-800"
-                />
-              </div>
-            }
-          />
-          <div className="flex flex-wrap gap-2 p-4">
-            {activeAllocation.length === 0 ? (
-              <p className="text-sm text-slate-400">No forecast excess to allocate against yet.</p>
-            ) : (
-              activeAllocation.map((a) => (
-                <div key={a.wardId} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-1.5 text-sm ring-1 ring-slate-200">
-                  <span className="font-medium text-slate-800">{a.wardName}</span>
-                  <span className="rounded bg-accent-100 px-1.5 text-xs font-bold text-accent-700">×{a.teams}</span>
-                  {a.peakExcess != null && <span className="text-xs text-slate-400">+{Math.round(a.peakExcess)}</span>}
-                </div>
-              ))
-            )}
+            <Skeleton className="h-72 w-full rounded-xl" />
           </div>
-        </Card>
+        ) : state.error ? (
+          <Card>
+            <ErrorState message={state.error} onRetry={() => state.refresh()} />
+          </Card>
+        ) : (
+          state.data &&
+          (() => {
+            const [wards, forecasts, metrics, dispatchPage, stationHealth, accuracy] = state.data
+            const sortedWards = [...wards].sort((a, b) => {
+              if (a.aqi === null && b.aqi === null) return 0
+              if (a.aqi === null) return 1
+              if (b.aqi === null) return -1
+              return b.aqi - a.aqi
+            })
+            const severeAlerts = severeWardsWithin(wards, forecasts, windowHours)
+            const slaBuckets = bucketDispatchSla(dispatchPage.rows)
+            const sourceMix = tallySourceMix(wards)
+            const stationRollup = rollupStationHealth(stationHealth)
+            const allocation = allocateTeams(
+              wards.map((w) => ({ id: w.id, name: w.name })),
+              forecasts,
+              teams,
+            )
+            const trustPct =
+              accuracy.totalWardPollutantPairs > 0
+                ? Math.round((accuracy.beatsPersistenceCount / accuracy.totalWardPollutantPairs) * 100)
+                : null
 
-        {/* ── Hotspots: table on desktop, cards on mobile - intentionally distinct, not a shrunk table ── */}
-        <Card>
-          <CardHeader title="Hotspots" subtitle="Current reading and 48h forecast peak, worst first" />
-          {loading ? (
-            <div className="space-y-2 p-4">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-          ) : (
-            <>
-              {/* Mobile: stacked cards */}
-              <ul className="divide-y divide-slate-100 sm:hidden">
-                {wards.map((ward, i) => {
-                  const fc = forecasts.get(ward.id)
-                  return (
-                    <li key={ward.id} className="flex items-center justify-between px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
-                          <span className="text-xs text-slate-400">#{i + 1}</span>
-                          {ward.name}
-                        </p>
-                        <p className="mt-0.5 text-xs capitalize text-slate-400">
-                          {ward.dominant_source?.replace(/_/g, ' ') ?? 'source unknown'} · {timeAgo(ward.ts)} ago
-                        </p>
-                      </div>
-                      <div className="flex flex-shrink-0 items-center gap-2">
-                        <AqiPill aqi={ward.aqi} />
-                        {fc?.peakPred != null && (
-                          <span className="text-xs text-slate-400">→ {Math.round(fc.peakPred)}</span>
-                        )}
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
+            const kpis: KpiItem[] = [
+              { key: 'open', icon: AlertCircle, label: 'Open incidents', value: metrics.openCount, tone: 'info' },
+              {
+                key: 'severe',
+                icon: TrendingUp,
+                label: 'Predicted severe',
+                value: severeAlerts.length,
+                sublabel: `within ${windowHours}h`,
+                tone: severeAlerts.length > 0 ? 'critical' : 'success',
+              },
+              {
+                key: 'median',
+                icon: Clock3,
+                label: 'Median time to action',
+                value: metrics.medianHours != null ? `${metrics.medianHours.toFixed(1)}h` : '—',
+                tone: 'neutral',
+              },
+              {
+                key: 'dispatches',
+                icon: Truck,
+                label: 'Active dispatches',
+                value: dispatchPage.totalCount,
+                sublabel: `${slaBuckets.overdue} overdue`,
+                tone: slaBuckets.overdue > 0 ? 'critical' : 'info',
+              },
+              {
+                key: 'sensors',
+                icon: Radio,
+                label: 'Sensor freshness',
+                value: `${stationRollup.active - stationRollup.stale}/${stationRollup.total}`,
+                sublabel: 'fresh',
+                tone: stationRollup.stale > 0 ? 'warning' : 'success',
+              },
+              {
+                key: 'trust',
+                icon: ShieldCheck,
+                label: 'Forecast trust',
+                value: trustPct != null ? `${trustPct}%` : '—',
+                tone: trustPct != null && trustPct >= 50 ? 'success' : 'warning',
+              },
+            ]
 
-              {/* Desktop: table */}
-              <div className="hidden overflow-x-auto sm:block">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-left text-xs uppercase text-slate-400">
-                      <th className="px-4 py-2 font-medium">#</th>
-                      <th className="px-4 py-2 font-medium">Ward</th>
-                      <th className="px-4 py-2 font-medium">Now</th>
-                      <th className="px-4 py-2 font-medium">Peak 48h</th>
-                      <th className="px-4 py-2 font-medium">Source</th>
-                      <th className="px-4 py-2 font-medium">Age</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {wards.map((ward, i) => {
-                      const fc = forecasts.get(ward.id)
-                      return (
-                        <tr key={ward.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                          <td className="px-4 py-2 text-slate-400">{i + 1}</td>
-                          <td className="px-4 py-2 font-medium text-slate-800">{ward.name}</td>
-                          <td className="px-4 py-2"><AqiPill aqi={ward.aqi} /></td>
-                          <td className="px-4 py-2">
-                            {fc?.peakPred != null ? (
-                              <span className="inline-flex items-center gap-1">
-                                <AqiPill aqi={Math.round(fc.peakPred)} />
-                                {fc.peakExcess != null && <span className="text-xs text-slate-400">+{Math.round(fc.peakExcess)}</span>}
-                              </span>
-                            ) : <span className="text-slate-300">-</span>}
-                          </td>
-                          <td className="px-4 py-2 capitalize text-slate-500">{ward.dominant_source?.replace(/_/g, ' ') ?? '-'}</td>
-                          <td className="px-4 py-2 text-slate-400">{timeAgo(ward.ts)}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </Card>
+            return (
+              <>
+                <KpiStrip items={kpis} />
 
-        {/* ── Map ── */}
-        <Card className="overflow-hidden">
-          <CardHeader title="Map" subtitle="Ward AQI, current readings" />
-          <div className="h-64 sm:h-80"><MapView markers={markers} /></div>
-        </Card>
+                <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+                  <PriorityAlertsPanel
+                    alerts={severeAlerts}
+                    windowHours={windowHours}
+                    selectedWardId={selectedWardId}
+                    onSelectWard={setSelectedWardId}
+                  />
+                  <OperationalSummaryPanel metrics={metrics} slaBuckets={slaBuckets} accuracy={accuracy} />
+                </div>
+
+                <HotspotsRiskTable
+                  wards={sortedWards}
+                  forecasts={forecasts}
+                  pollutant={pollutant}
+                  windowHours={windowHours}
+                  selectedWardId={selectedWardId}
+                  onSelectWard={setSelectedWardId}
+                />
+
+                <div className="grid gap-4 lg:grid-cols-3">
+                  <SourceMixPanel mix={sourceMix} />
+                  <TeamAllocationPanel teams={teams} onTeamsChange={setTeams} allocation={allocation} />
+                  <SensorHealthSnapshot rollup={stationRollup} />
+                </div>
+              </>
+            )
+          })()
+        )}
       </div>
     </AppShell>
   )
