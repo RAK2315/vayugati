@@ -99,3 +99,15 @@ This is a **real polygon with failed/missing metadata**, not a duplicate, not a 
 3. Flag it for manual follow-up: someone with access to an authoritative current MCD ward map/list could check whether this polygon represents a real ward that this particular source file simply failed to label (e.g. a ward split or boundary revision near Vasant Vihar/Munirka/R.K. Puram), or whether it's a genuine digitization leftover in the source KML with no real-world counterpart. Either way, that determination needs a human with ground-truth ward data, not a guess made during file conversion.
 
 This finding does not block Phase 1 ward import — it narrows it from "251 wards" to "250 wards, cleanly matching Delhi's official count, plus one excluded row pending manual review."
+
+---
+
+## 7. Update (Phase 2 follow-up): the excluded feature's likely identity
+
+After the 250-ward import shipped and rendered on the Map, two real gaps appeared in the ward mesh where two non-MCD jurisdictions sit: **NDMC** (New Delhi Municipal Council) and **Delhi Cantonment** (Ministry of Defence). Both were confirmed via point-in-polygon tests against known landmarks (Connaught Place, India Gate, Rashtrapati Bhavan, Chanakyapuri for NDMC; Delhi Cantt Railway Station for Cantonment) — none of the 250 imported wards contain any of these points.
+
+While investigating the Cantonment gap, the same test was run against the excluded `FID = 53` (`Ward_No = "0"`) feature's geometry: **Dhaula Kuan and the Delhi Cantt Railway Station area both fall inside it**, and its centroid falls inside the real OSM-published Delhi Cantonment boundary (relation `3492183`) fetched to fill that gap.
+
+This is a plausible (not certain) explanation, worth recording: `FID = 53` may not be a pure attribute-join failure after all — it may be the Cantonment boundary itself, included in the source KML/shapefile for geographic completeness but correctly left without an MCD `Ward_No`/`WardName` since Cantonment genuinely isn't an MCD ward. The two explanations aren't mutually exclusive (the join could have failed *because* there was no MCD ward record to join to, for exactly this reason). Either way, the original decision to exclude it from the ward import stands — it still cannot be imported as an MCD ward without fabricating a name/number.
+
+**Both gaps are now filled** using real, separately-sourced OpenStreetMap boundaries (not `FID = 53` itself, which remains excluded and unused) — see `scripts/import-osm-jurisdictions.ts` and `data/delhi/processed/delhi_non_mcd_jurisdictions.geojson`.

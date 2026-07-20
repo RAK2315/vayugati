@@ -13,6 +13,7 @@ export interface WardBoundaryFeatureProps {
   id: number
   name: string
   wardNumber: number | null
+  jurisdictionType: 'mcd' | 'ndmc' | 'cantonment'
 }
 
 const BOUNDARY_SOURCE_ID = 'ward-boundaries'
@@ -102,6 +103,18 @@ export default function MapView({
   // arrival of data can create the source/layers for the first time, not
   // just update one that (incorrectly) assumed to already exist.
   const ensureBoundaryLayersRef = useRef<(() => void) | null>(null)
+  // Latched true exactly once, by the map's own one-time 'load' event (set
+  // in the mount effect below). Deliberately NOT map.isStyleLoaded(): that
+  // check also goes false whenever a GeoJSON source is mid-reprocessing
+  // after setData() - completely unrelated to whether the STYLE has ever
+  // loaded, but indistinguishable from it by that call alone. A toggle
+  // click landing in that reprocessing window would see isStyleLoaded()
+  // report false and fall back to waiting on 'style.load' - an event that
+  // only fires for real style (re)loads, never for a source data update,
+  // so it would then wait forever. This ref sidesteps that entirely: once
+  // the map has loaded for the first time, every later effect below can
+  // apply its change immediately, with no event-based fallback needed.
+  const mapReadyRef = useRef(false)
   useEffect(() => {
     wardBoundariesRef.current = wardBoundaries
   }, [wardBoundaries])
@@ -188,17 +201,21 @@ export default function MapView({
     }
     ensureBoundaryLayersRef.current = addBoundaryLayers
     // 'style.load', not 'load': 'load' only ever fires once in the map's
-    // whole lifetime, but a real basemap switch (or, before the fix below,
+    // whole lifetime, but a real basemap switch (or, before an earlier fix,
     // a redundant one) reloads the style again later - a fallback
     // registered on 'load' during any later reload would wait forever.
     // 'style.load' fires on every style transition, including the first,
-    // so it's the correct event both here and in the
-    // wardBoundaries/showWardBoundaries/selectedBoundaryId effects below.
+    // so it's the correct event here specifically (creating the layers
+    // fresh after any style change). The later effects below use
+    // mapReadyRef instead - see its declaration for why.
     if (map.isStyleLoaded()) addBoundaryLayers()
     else map.once('style.load', addBoundaryLayers)
     // Persistent (not once): keeps the boundary layer alive across every
     // later basemap switch too, not just this initial load.
     map.on('style.load', addBoundaryLayers)
+    map.once('load', () => {
+      mapReadyRef.current = true
+    })
 
     mapRef.current = map
     return () => {
@@ -301,15 +318,22 @@ export default function MapView({
   // asynchronously after mount, same staggered-load pattern as markers
   // above, so the mount effect above almost always runs before any real
   // data exists), or just updates them via setData if they already exist.
+  // Gated on mapReadyRef, not isStyleLoaded() - see that ref's declaration.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !wardBoundaries) return
     const apply = () => ensureBoundaryLayersRef.current?.()
-    if (map.isStyleLoaded()) apply()
-    else map.once('style.load', apply)
+    if (mapReadyRef.current) apply()
+    else map.once('load', apply)
   }, [wardBoundaries])
 
-  // Toggle layer visibility without touching the source/data.
+  // Toggle layer visibility without touching the source/data. Gated on
+  // mapReadyRef, not isStyleLoaded() - see that ref's declaration for why:
+  // isStyleLoaded() can be transiently false here even long after the map
+  // has genuinely finished loading, whenever the boundary source itself is
+  // mid-reprocessing from its own setData() call above - a state a
+  // 'style.load' fallback would never resolve, since that event doesn't
+  // fire for source data changes.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -318,11 +342,12 @@ export default function MapView({
       if (map.getLayer(BOUNDARY_FILL_LAYER_ID)) map.setLayoutProperty(BOUNDARY_FILL_LAYER_ID, 'visibility', visibility)
       if (map.getLayer(BOUNDARY_LINE_LAYER_ID)) map.setLayoutProperty(BOUNDARY_LINE_LAYER_ID, 'visibility', visibility)
     }
-    if (map.isStyleLoaded()) apply()
-    else map.once('style.load', apply)
+    if (mapReadyRef.current) apply()
+    else map.once('load', apply)
   }, [showWardBoundaries])
 
   // Highlight the selected ward's polygon without touching the source/data.
+  // Gated on mapReadyRef, not isStyleLoaded() - see that ref's declaration.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -332,8 +357,8 @@ export default function MapView({
       map.setPaintProperty(BOUNDARY_FILL_LAYER_ID, 'fill-opacity', fillOpacityExpr(id))
       map.setPaintProperty(BOUNDARY_LINE_LAYER_ID, 'line-width', lineWidthExpr(id))
     }
-    if (map.isStyleLoaded()) apply()
-    else map.once('style.load', apply)
+    if (mapReadyRef.current) apply()
+    else map.once('load', apply)
   }, [selectedBoundaryId])
 
   return <div ref={containerRef} className="h-full w-full" />

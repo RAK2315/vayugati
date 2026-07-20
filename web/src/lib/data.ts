@@ -111,30 +111,41 @@ export interface WardBoundary {
   id: number
   name: string
   wardNumber: number | null
+  /** 'mcd' for a real numbered municipal ward (Phase 2 import); 'ndmc' or
+   *  'cantonment' for the two non-MCD jurisdictions inside the Map's
+   *  viewport (OSM import) - read from wards.metadata.jurisdiction_type,
+   *  defaulting to 'mcd' for rows that predate that field. */
+  jurisdictionType: 'mcd' | 'ndmc' | 'cantonment'
   geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon
 }
 
 /** Real ward boundary polygons for the Map's ward-boundary layer - covers
  *  every ward with real captured geometry (the Phase 2 municipal import,
- *  and any of the 13 hotspot wards if they're ever given one too), not
- *  just the monitored hotspot set fetchAllWardsAqi() is scoped to. Never
- *  a hardcoded polygon - if Supabase has no boundary data yet, this
- *  returns an empty array and the layer stays disabled (see MapPage.tsx). */
+ *  the NDMC/Cantonment OSM import, and any of the 13 hotspot wards if
+ *  they're ever given one too), not just the monitored hotspot set
+ *  fetchAllWardsAqi() is scoped to. Never a hardcoded polygon - if
+ *  Supabase has no boundary data yet, this returns an empty array and the
+ *  layer stays disabled (see MapPage.tsx). */
 export async function fetchAllWardBoundaries(): Promise<WardBoundary[]> {
   const { data } = await supabase
     .from('wards')
-    .select('id, name, ward_number, boundary')
+    .select('id, name, ward_number, boundary, metadata')
     .not('boundary', 'is', null)
     .order('ward_number', { ascending: true, nullsFirst: false })
   if (!data) return []
   return data
     .filter((w): w is typeof w & { boundary: NonNullable<typeof w.boundary> } => w.boundary != null)
-    .map((w) => ({
-      id: w.id,
-      name: w.name,
-      wardNumber: w.ward_number,
-      geometry: w.boundary as unknown as GeoJSON.Polygon | GeoJSON.MultiPolygon,
-    }))
+    .map((w) => {
+      const meta = w.metadata as { jurisdiction_type?: string } | null
+      const jurisdictionType = meta?.jurisdiction_type === 'ndmc' || meta?.jurisdiction_type === 'cantonment' ? meta.jurisdiction_type : 'mcd'
+      return {
+        id: w.id,
+        name: w.name,
+        wardNumber: w.ward_number,
+        jurisdictionType,
+        geometry: w.boundary as unknown as GeoJSON.Polygon | GeoJSON.MultiPolygon,
+      }
+    })
 }
 
 export interface StationMarker {

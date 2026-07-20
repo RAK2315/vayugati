@@ -12,6 +12,7 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
-    "import:delhi-wards": "tsx scripts/import-delhi-wards.ts"
+    "import:delhi-wards": "tsx scripts/import-delhi-wards.ts",
+    "import:osm-jurisdictions": "tsx scripts/import-osm-jurisdictions.ts"
   }
 }

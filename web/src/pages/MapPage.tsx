@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import AppShell from '../components/AppShell'
-import MapView from '../components/MapView'
+import MapView, { type WardBoundaryFeatureProps } from '../components/MapView'
 import { ErrorState, Skeleton } from '../components/ui'
 import BasemapSwitcher from '../components/map/BasemapSwitcher'
 import MapLayerControl, { DEFAULT_LAYER_STATE, type MapLayerKey } from '../components/map/MapLayerControl'
@@ -52,7 +52,13 @@ type Selection =
   | { kind: 'ward'; id: number }
   | { kind: 'station'; id: number }
   | { kind: 'incident'; id: number }
-  | { kind: 'wardBoundary'; id: number; name: string; wardNumber: number | null }
+  | {
+      kind: 'wardBoundary'
+      id: number
+      name: string
+      wardNumber: number | null
+      jurisdictionType: 'mcd' | 'ndmc' | 'cantonment'
+    }
   | null
 
 // Stable module-level fallback for state.data's pre-load shape. An inline
@@ -277,22 +283,20 @@ export default function MapPage() {
   // - an empty array here means the layer control correctly shows the
   // toggle as unavailable (MapLayerControl's wardBoundariesAvailable prop),
   // never a placeholder/hardcoded shape.
-  const wardBoundaryCollection = useMemo<
-    GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, { id: number; name: string; wardNumber: number | null }>
-  >(
+  const wardBoundaryCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, WardBoundaryFeatureProps>>(
     () => ({
       type: 'FeatureCollection',
       features: wardBoundaries.map((w) => ({
         type: 'Feature',
-        properties: { id: w.id, name: w.name, wardNumber: w.wardNumber },
+        properties: { id: w.id, name: w.name, wardNumber: w.wardNumber, jurisdictionType: w.jurisdictionType },
         geometry: w.geometry,
       })),
     }),
     [wardBoundaries],
   )
   const wardBoundariesAvailable = wardBoundaries.length > 0
-  const handleBoundaryClick = useCallback((ward: { id: number; name: string; wardNumber: number | null }) => {
-    setSelection({ kind: 'wardBoundary', id: ward.id, name: ward.name, wardNumber: ward.wardNumber })
+  const handleBoundaryClick = useCallback((ward: WardBoundaryFeatureProps) => {
+    setSelection({ kind: 'wardBoundary', id: ward.id, name: ward.name, wardNumber: ward.wardNumber, jurisdictionType: ward.jurisdictionType })
   }, [])
 
   const selectedWard = selection?.kind === 'ward' ? wards.find((w) => w.id === selection.id) : undefined
@@ -404,6 +408,7 @@ export default function MapPage() {
                   <SelectedWardBoundaryPanel
                     name={selection.name}
                     wardNumber={selection.wardNumber}
+                    jurisdictionType={selection.jurisdictionType}
                     onClose={() => setSelection(null)}
                   />
                 ) : (
