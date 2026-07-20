@@ -20,6 +20,29 @@ const BOUNDARY_FILL_LAYER_ID = 'ward-boundaries-fill'
 const BOUNDARY_LINE_LAYER_ID = 'ward-boundaries-line'
 const NO_SELECTION = -1 // sentinel: no real ward.id is ever <= 0 (serial starts at 1)
 
+// 250 small municipal wards packed into one city view means each polygon is
+// only a handful of screen pixels at the app's default zoom - 0.08/1px (the
+// original values) survives a zoomed-in screenshot but is genuinely
+// imperceptible at that scale (confirmed with a pixel-diff: the layer WAS
+// rendering correctly, just too faint to see). These are deliberately more
+// visible without overwhelming the markers drawn on top.
+const FILL_OPACITY_DEFAULT = 0.18
+const FILL_OPACITY_SELECTED = 0.4
+const LINE_WIDTH_DEFAULT = 1.5
+const LINE_WIDTH_SELECTED = 3
+
+// MapLibre's paint-property types want a mutable tuple, not the readonly
+// array `as const` would produce - a plain function returning a fresh
+// array literal each call satisfies that without duplicating the
+// ['case', ...] shape at all four call sites (initial paint x2, later
+// setPaintProperty x2) below.
+function fillOpacityExpr(selectedId: number): maplibregl.ExpressionSpecification {
+  return ['case', ['==', ['get', 'id'], selectedId], FILL_OPACITY_SELECTED, FILL_OPACITY_DEFAULT]
+}
+function lineWidthExpr(selectedId: number): maplibregl.ExpressionSpecification {
+  return ['case', ['==', ['get', 'id'], selectedId], LINE_WIDTH_SELECTED, LINE_WIDTH_DEFAULT]
+}
+
 interface Props {
   markers?: MapMarker[]
   center?: [number, number]
@@ -141,7 +164,7 @@ export default function MapView({
         layout: { visibility },
         paint: {
           'fill-color': '#0ea5e9',
-          'fill-opacity': ['case', ['==', ['get', 'id'], selectedId], 0.35, 0.08],
+          'fill-opacity': fillOpacityExpr(selectedId),
         },
       })
       map.addLayer({
@@ -150,8 +173,8 @@ export default function MapView({
         source: BOUNDARY_SOURCE_ID,
         layout: { visibility },
         paint: {
-          'line-color': '#0ea5e9',
-          'line-width': ['case', ['==', ['get', 'id'], selectedId], 2.5, 1],
+          'line-color': '#0284c7',
+          'line-width': lineWidthExpr(selectedId),
         },
       })
     }
@@ -280,8 +303,8 @@ export default function MapView({
     const id = selectedBoundaryId ?? NO_SELECTION
     const apply = () => {
       if (!map.getLayer(BOUNDARY_FILL_LAYER_ID)) return
-      map.setPaintProperty(BOUNDARY_FILL_LAYER_ID, 'fill-opacity', ['case', ['==', ['get', 'id'], id], 0.35, 0.08])
-      map.setPaintProperty(BOUNDARY_LINE_LAYER_ID, 'line-width', ['case', ['==', ['get', 'id'], id], 2.5, 1])
+      map.setPaintProperty(BOUNDARY_FILL_LAYER_ID, 'fill-opacity', fillOpacityExpr(id))
+      map.setPaintProperty(BOUNDARY_LINE_LAYER_ID, 'line-width', lineWidthExpr(id))
     }
     if (map.isStyleLoaded()) apply()
     else map.once('load', apply)
