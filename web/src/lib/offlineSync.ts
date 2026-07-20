@@ -11,14 +11,15 @@
  * applied is dropped silently, moved to a genuinely different state is a
  * real conflict surfaced to the officer, never auto-resolved.
  *
- * Explicitly NOT guaranteed: submitMissionResult/submitFieldCompletion have
- * no server-side idempotency key (see the migration comment on
- * submitMissionResult's own non-atomicity) - a replay whose previous
- * attempt's outcome is unknown (e.g. the tab was killed mid-sync) is never
- * auto-retried; it's marked failed and needs explicit officer confirmation,
- * trading some inconvenience for never risking a silent duplicate write.
- * A fully atomic fix (idempotency-keyed RPCs) is real backend work beyond
- * this pass.
+ * submitMissionResult/submitFieldCompletion are now genuinely atomic and
+ * idempotent server-side (supabase/migrations/20260730000000_atomic_mission_rpcs.sql):
+ * every queued mutation's own id doubles as its idempotency key, so a
+ * replay - even a duplicate one triggered by a crash mid-sync - is a safe
+ * no-op on the server rather than a duplicate write. The queue still marks
+ * a failed replay as 'failed' rather than silently retrying forever (a real
+ * validation error, e.g. a wrong-ward officer, should never loop), but the
+ * "unknown outcome, don't risk a double-write" concern this file used to
+ * carry no longer applies to these two mutation kinds.
  */
 import {
   deleteMutationAndPhotos,
@@ -111,35 +112,40 @@ export async function runOrQueueTransitionTaskDispatch(
 }
 
 export async function runOrQueueSubmitMissionResult(
-  params: Omit<SubmitMissionParams, 'proofPhotoUrl'>,
+  params: Omit<SubmitMissionParams, 'proofPhotoUrl' | 'idempotencyKey'>,
   photoFile: File | null,
+  actorId: string,
   label: string,
 ): Promise<{ queued: boolean }> {
+  // The mutation's own id doubles as its idempotency key - generated once,
+  // up front, so it's identical whether this lands on the first attempt
+  // (below) or after N replays.
+  const id = newId()
+
   if (navigator.onLine) {
     try {
       let proofPhotoUrl: string | null = null
       if (photoFile) {
         try {
-          proofPhotoUrl = await uploadReportPhoto(photoFile, params.actorId)
+          proofPhotoUrl = await uploadReportPhoto(photoFile, actorId)
         } catch {
           proofPhotoUrl = null
         }
       }
-      await submitMissionResult({ ...params, proofPhotoUrl })
+      await submitMissionResult({ ...params, proofPhotoUrl, idempotencyKey: id })
       return { queued: false }
     } catch (err) {
       if (!isLikelyNetworkFailure(err)) throw err
     }
   }
 
-  const id = newId()
   const photos: PendingPhoto[] = []
   let proofPhotoUrl: string | null = null
   if (photoFile) {
     proofPhotoUrl = `local:${newId()}`
     photos.push({ id: proofPhotoUrl, mutationId: id, blob: photoFile, uploaded: false, remoteUrl: null })
   }
-  const payload: QueuedSubmitMissionPayload = { ...params, proofPhotoUrl }
+  const payload: QueuedSubmitMissionPayload = { ...params, proofPhotoUrl, actorId, idempotencyKey: id }
   await enqueueMutation(
     { id, kind: 'submitMissionResult', payload, createdAt: Date.now(), attempts: 0, lastError: null, status: 'pending', label },
     photos,
@@ -149,28 +155,30 @@ export async function runOrQueueSubmitMissionResult(
 }
 
 export async function runOrQueueSubmitFieldCompletion(
-  params: Omit<FieldCompletionParams, 'photoUrls'>,
+  params: Omit<FieldCompletionParams, 'photoUrls' | 'idempotencyKey'>,
   photoFiles: File[],
+  actorId: string,
   label: string,
 ): Promise<{ queued: boolean }> {
+  const id = newId()
+
   if (navigator.onLine) {
     try {
       const photoUrls: string[] = []
       for (const f of photoFiles) {
         try {
-          photoUrls.push(await uploadReportPhoto(f, params.actorId))
+          photoUrls.push(await uploadReportPhoto(f, actorId))
         } catch {
           // continue without this one photo - matches the pre-existing behavior
         }
       }
-      await submitFieldCompletion({ ...params, photoUrls })
+      await submitFieldCompletion({ ...params, photoUrls, idempotencyKey: id })
       return { queued: false }
     } catch (err) {
       if (!isLikelyNetworkFailure(err)) throw err
     }
   }
 
-  const id = newId()
   const photos: PendingPhoto[] = []
   const photoUrls: string[] = []
   for (const f of photoFiles) {
@@ -178,7 +186,7 @@ export async function runOrQueueSubmitFieldCompletion(
     photos.push({ id: ref, mutationId: id, blob: f, uploaded: false, remoteUrl: null })
     photoUrls.push(ref)
   }
-  const payload: QueuedFieldCompletionPayload = { ...params, photoUrls }
+  const payload: QueuedFieldCompletionPayload = { ...params, photoUrls, actorId, idempotencyKey: id }
   await enqueueMutation(
     { id, kind: 'submitFieldCompletion', payload, createdAt: Date.now(), attempts: 0, lastError: null, status: 'pending', label },
     photos,
@@ -273,18 +281,20 @@ export async function runSyncOnce(): Promise<void> {
   }
 }
 
-/** A mutation left in 'syncing' means the app closed (or crashed) mid-replay
- *  - its real outcome is unknown, so it must never be silently resumed.
- *  Called once at startup, before any real sync attempt. */
+/** A mutation left in 'syncing' means the app closed (or crashed) mid-replay.
+ *  Safe to reset to 'pending' and let the normal sync pass resume it: every
+ *  mutation kind is resume-safe now - transitionTaskDispatch via its own
+ *  current-status recheck (see replayOne), submitMissionResult/
+ *  submitFieldCompletion via their server-side idempotency key - so a
+ *  resumed replay either lands cleanly, recognizes it already landed, or
+ *  (for transitionTaskDispatch specifically) surfaces a real conflict; it
+ *  never silently double-writes. Called once at startup, before any real
+ *  sync attempt. */
 export async function recoverStaleSyncingMutations(): Promise<void> {
   const mutations = await listQueuedMutations()
   for (const m of mutations) {
     if (m.status === 'syncing') {
-      await updateMutation({
-        ...m,
-        status: 'failed',
-        lastError: 'Sync was interrupted (e.g. the app closed) - outcome unknown. Review before retrying.',
-      })
+      await updateMutation({ ...m, status: 'pending' })
     }
   }
   notifyChanged()
@@ -310,8 +320,12 @@ export async function discardMutation(id: string): Promise<void> {
 
 /** Wired once at the shell level (AppShell.tsx) - recovers any stale
  *  'syncing' rows, then syncs on mount (if online) and on every
- *  online-transition. */
+ *  online-transition. Also requests persistent storage: a best-effort
+ *  request, not a guarantee (browsers can silently refuse it, e.g. if the
+ *  origin has low "site engagement") - reduces the offline queue's exposure
+ *  to storage eviction on low-storage/older Android devices. */
 export function initOfflineSync(): () => void {
+  navigator.storage?.persist().catch(() => {})
   recoverStaleSyncingMutations().then(() => {
     if (navigator.onLine) void runSyncOnce()
   })

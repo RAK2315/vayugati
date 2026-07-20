@@ -98,7 +98,7 @@ function ChecklistField({
 }
 
 function MissionForm({ m, onDone }: { m: MissionWithIncident; onDone: () => void }) {
-  const { session, profile } = useAuth()
+  const { session } = useAuth()
   const items = checklistFor(m.leadingCategory)
 
   const [responses, setResponses] = useState<Record<string, unknown>>({})
@@ -150,12 +150,12 @@ function MissionForm({ m, onDone }: { m: MissionWithIncident; onDone: () => void
           lat: coords?.lat ?? null,
           lng: coords?.lng ?? null,
           notes: typeof responses.notes === 'string' ? responses.notes : null,
-          actorId: session.user.id,
-          // A field officer IS an authorised officer — their confirmation is what
-          // makes a source officially verified (plan §9).
-          isAuthorisedOfficer: profile?.role === 'field_officer' || profile?.role === 'admin',
+          // Actor identity and "is this an authorised officer" (plan §9) are
+          // now derived server-side from auth.uid() by submit_mission_result -
+          // never trusted from the client.
         },
         photo,
+        session.user.id,
         `Mission result - Incident #${m.mission.incident_id}`,
       )
 
@@ -347,7 +347,6 @@ function InterventionCompletionForm({ item, onDone }: { item: InterventionWithIn
         {
           actionId: item.action.id,
           incidentId: item.action.incident_id!,
-          actorId: session.user.id,
           sourceConfirmed,
           actionPerformed,
           startedAt,
@@ -356,8 +355,12 @@ function InterventionCompletionForm({ item, onDone }: { item: InterventionWithIn
           lat: coords?.lat ?? null,
           lng: coords?.lng ?? null,
           notCompletedReason: couldNotComplete ? notCompletedReason.trim() : null,
+          // Actor identity and ward authorization are now derived server-side
+          // from auth.uid() by submit_field_completion - never trusted from
+          // the client.
         },
         photos,
+        session.user.id,
         `Intervention completion - Incident #${item.action.incident_id}`,
       )
       // The "Offline queue" card (rendered persistently in MissionsView)

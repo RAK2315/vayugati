@@ -1,0 +1,21 @@
+{
+  "name": "Vayu Gati",
+  "short_name": "Vayu Gati",
+  "description": "Pan-India urban air incident-response platform. Delhi is the first City Pack.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#422B1C",
+  "background_color": "#F6EFE4",
+  "icons": [
+    {
+      "src": "/brand/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

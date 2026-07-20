@@ -788,68 +788,34 @@ export interface SubmitMissionParams {
   lat?: number | null
   lng?: number | null
   notes?: string | null
-  actorId: string
-  /** Field officers officially verify; citizens only contribute supporting evidence. */
-  isAuthorisedOfficer: boolean
+  /** A client-generated UUID (offlineSync.ts reuses the queued mutation's own
+   *  id) - a replay with the same key is a safe no-op on the server, never a
+   *  duplicate write. Required, not optional: every caller must supply one. */
+  idempotencyKey: string
 }
 
 /**
- * Submit a completed mission: record the result, file it as incident evidence,
- * and move the incident's evidence level per the field-outcome rule.
- *
- * Not a transaction — supabase-js has no client-side transaction, so a failure
- * partway leaves the mission completed but the incident level unmoved. That is
- * the safe direction to fail (evidence is recorded; the privileged state change
- * is what's skipped) and is recoverable by re-running from the command
- * workspace. Making this atomic means a second RPC, noted as follow-up work.
+ * Submit a completed mission: record the result, file it as incident
+ * evidence, and log the event - atomically, via the submit_mission_result
+ * RPC (supabase/migrations/20260730000000_atomic_mission_rpcs.sql). Actor
+ * identity and "is this an authorised officer" are derived server-side from
+ * auth.uid(), never trusted from the client. Previously three separate,
+ * non-transactional client calls - see that migration's header comment for
+ * the full reasoning.
  */
 export async function submitMissionResult(p: SubmitMissionParams): Promise<void> {
-  const { error } = await supabase
-    .from('evidence_missions')
-    .update({
-      status: 'completed',
-      outcome: p.outcome,
-      checklist_response: p.checklistResponse as never,
-      proof_photo_url: p.proofPhotoUrl ?? null,
-      lat: p.lat ?? null,
-      lng: p.lng ?? null,
-      notes: p.notes ?? null,
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', p.missionId)
+  const { error } = await supabase.rpc('submit_mission_result', {
+    p_mission_id: p.missionId,
+    p_incident_id: p.incidentId,
+    p_outcome: p.outcome,
+    p_checklist_response: p.checklistResponse as never,
+    p_proof_photo_url: p.proofPhotoUrl ?? undefined,
+    p_lat: p.lat ?? undefined,
+    p_lng: p.lng ?? undefined,
+    p_notes: p.notes ?? undefined,
+    p_idempotency_key: p.idempotencyKey,
+  })
   if (error) fail('Could not submit the mission result', error)
-
-  await addIncidentEvidence({
-    incidentId: p.incidentId,
-    evidenceType: p.proofPhotoUrl ? 'photo' : 'field_inspection',
-    // "unresolved" is neither support nor contradiction — null, not false.
-    supports: p.outcome === 'confirmed' ? true : p.outcome === 'rejected' ? false : null,
-    reportId: null,
-    payload: {
-      outcome: p.outcome,
-      checklist: p.checklistResponse,
-      photo_url: p.proofPhotoUrl ?? null,
-      lat: p.lat ?? null,
-      lng: p.lng ?? null,
-      mission_id: p.missionId,
-      authorised_officer: p.isAuthorisedOfficer,
-    },
-    collectedBy: p.actorId,
-  })
-
-  await addIncidentEvent({
-    incidentId: p.incidentId,
-    eventType: 'evidence_added',
-    actorId: p.actorId,
-    note:
-      p.outcome === 'confirmed'
-        ? 'A field visit confirmed the suspected source.'
-        : p.outcome === 'rejected'
-          ? 'A field visit did not find the suspected source.'
-          : 'A field visit could not determine the source.',
-    isPublic: true,
-    payload: { outcome: p.outcome },
-  })
 }
 
 // ── timeline ─────────────────────────────────────────────────────────────────
@@ -1400,7 +1366,6 @@ export async function advanceIntervention(
 export interface FieldCompletionParams {
   actionId: number
   incidentId: number
-  actorId: string
   sourceConfirmed: boolean | null
   actionPerformed: string
   startedAt: string | null
@@ -1412,14 +1377,21 @@ export interface FieldCompletionParams {
   lng: number | null
   /** Required when the action could not be completed at all. */
   notCompletedReason?: string | null
+  /** A client-generated UUID (offlineSync.ts reuses the queued mutation's own
+   *  id) - a replay with the same key is a safe no-op on the server, never a
+   *  duplicate write. Required, not optional: every caller must supply one. */
+  idempotencyKey: string
 }
 
 /**
  * Submit a field officer's operational completion (or non-completion) of an
- * intervention. Writes one `action_evidence` row per proof item (GPS,
- * checklist, each photo) rather than a single blob, so each is independently
- * queryable/auditable, matching the shape `action_evidence.evidence_type`
- * already defines.
+ * intervention - atomically, via the submit_field_completion RPC
+ * (supabase/migrations/20260730000000_atomic_mission_rpcs.sql). Writes one
+ * `action_evidence` row per proof item (GPS, checklist, each photo) rather
+ * than a single blob, so each is independently queryable/auditable,
+ * matching the shape `action_evidence.evidence_type` already defines. Actor
+ * identity and ward authorization are derived server-side from auth.uid(),
+ * never trusted from the client.
  *
  * Deliberately does NOT set an outcome or touch impact_evaluations — that is
  * the command workspace's job via `recordImpactEvaluation`, after a real
@@ -1429,81 +1401,21 @@ export interface FieldCompletionParams {
  * even attempt it.
  */
 export async function submitFieldCompletion(p: FieldCompletionParams): Promise<void> {
-  const wasCompleted = !p.notCompletedReason
-  if (!wasCompleted && !p.notCompletedReason?.trim()) {
-    throw new Error('Record why the action could not be completed.')
-  }
-
-  const patch: Database['public']['Tables']['actions']['Update'] = {
-    workflow_status: wasCompleted ? 'completed' : 'in_progress',
-    source_confirmed: p.sourceConfirmed,
-    started_at: p.startedAt,
-    completed_at: wasCompleted ? p.completedAt : null,
-    not_completed_reason: p.notCompletedReason ?? null,
-  }
-  const { error } = await supabase.from('actions').update(patch).eq('id', p.actionId)
+  const { error } = await supabase.rpc('submit_field_completion', {
+    p_action_id: p.actionId,
+    p_incident_id: p.incidentId,
+    p_source_confirmed: p.sourceConfirmed ?? undefined,
+    p_action_performed: p.actionPerformed,
+    p_started_at: p.startedAt ?? undefined,
+    p_completed_at: p.completedAt ?? undefined,
+    p_photo_urls: p.photoUrls,
+    p_checklist_response: p.checklistResponse as never,
+    p_lat: p.lat ?? undefined,
+    p_lng: p.lng ?? undefined,
+    p_not_completed_reason: p.notCompletedReason ?? undefined,
+    p_idempotency_key: p.idempotencyKey,
+  })
   if (error) fail('Could not submit the field completion', error)
-
-  // payload is jsonb (generated type: Json); `as never` matches the cast this
-  // file already uses for every other jsonb insert (see addIncidentEvidence).
-  const evidenceRows: Database['public']['Tables']['action_evidence']['Insert'][] = []
-  if (p.lat != null && p.lng != null) {
-    evidenceRows.push({
-      action_id: p.actionId,
-      evidence_type: 'gps',
-      payload: { lat: p.lat, lng: p.lng } as never,
-      captured_by: p.actorId,
-    })
-  }
-  evidenceRows.push({
-    action_id: p.actionId,
-    evidence_type: 'checklist',
-    payload: {
-      checklist: p.checklistResponse,
-      action_performed: p.actionPerformed,
-      source_confirmed: p.sourceConfirmed,
-    } as never,
-    captured_by: p.actorId,
-  })
-  for (const url of p.photoUrls) {
-    evidenceRows.push({
-      action_id: p.actionId,
-      evidence_type: 'photo',
-      photo_url: url,
-      payload: { lat: p.lat, lng: p.lng } as never,
-      captured_by: p.actorId,
-    })
-  }
-  if (p.startedAt && p.completedAt) {
-    evidenceRows.push({
-      action_id: p.actionId,
-      evidence_type: 'timestamp',
-      payload: { started_at: p.startedAt, completed_at: p.completedAt } as never,
-      captured_by: p.actorId,
-    })
-  }
-  if (!wasCompleted) {
-    evidenceRows.push({
-      action_id: p.actionId,
-      evidence_type: 'other',
-      payload: { not_completed_reason: p.notCompletedReason } as never,
-      captured_by: p.actorId,
-    })
-  }
-
-  const { error: evidErr } = await supabase.from('action_evidence').insert(evidenceRows)
-  if (evidErr) fail('Field completion saved, but the evidence record failed', evidErr)
-
-  await addIncidentEvent({
-    incidentId: p.incidentId,
-    eventType: wasCompleted ? 'action_completed' : 'status_changed',
-    actorId: p.actorId,
-    note: wasCompleted
-      ? 'Field officer recorded the intervention as completed. Pollution impact has not been verified yet.'
-      : `Field officer could not complete the intervention: ${p.notCompletedReason}`,
-    isPublic: true,
-    payload: { action_id: p.actionId, source_confirmed: p.sourceConfirmed, completed: wasCompleted },
-  })
 }
 
 // ── impact evaluation (Phase 4) ──────────────────────────────────────────────

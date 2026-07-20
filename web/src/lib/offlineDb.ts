@@ -29,11 +29,20 @@ export interface TransitionTaskDispatchPayload {
 }
 
 /** proofPhotoUrl becomes a `local:<uuid>` placeholder when queued offline -
- *  see pendingPhotos above. */
-export type QueuedSubmitMissionPayload = Omit<SubmitMissionParams, 'proofPhotoUrl'> & { proofPhotoUrl: string | null }
+ *  see pendingPhotos above. actorId is stored here even though it's no
+ *  longer part of SubmitMissionParams itself (the RPC derives it from
+ *  auth.uid() server-side) - the offline replay engine still needs it to
+ *  upload the queued photo blob to the right storage path at sync time. */
+export type QueuedSubmitMissionPayload = Omit<SubmitMissionParams, 'proofPhotoUrl'> & {
+  proofPhotoUrl: string | null
+  actorId: string
+}
 
-/** Same substitution for each entry of photoUrls. */
-export type QueuedFieldCompletionPayload = Omit<FieldCompletionParams, 'photoUrls'> & { photoUrls: string[] }
+/** Same substitution for each entry of photoUrls, same actorId note. */
+export type QueuedFieldCompletionPayload = Omit<FieldCompletionParams, 'photoUrls'> & {
+  photoUrls: string[]
+  actorId: string
+}
 
 export type QueuedMutationPayload =
   | TransitionTaskDispatchPayload

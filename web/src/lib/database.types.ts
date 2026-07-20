@@ -86,6 +86,7 @@ export type Database = {
           evidence: Json | null
           expected_verification_hours: number | null
           id: number
+          idempotency_key: string | null
           incident_id: number | null
           not_completed_reason: string | null
           playbook_id: number | null
@@ -118,6 +119,7 @@ export type Database = {
           evidence?: Json | null
           expected_verification_hours?: number | null
           id?: number
+          idempotency_key?: string | null
           incident_id?: number | null
           not_completed_reason?: string | null
           playbook_id?: number | null
@@ -150,6 +152,7 @@ export type Database = {
           evidence?: Json | null
           expected_verification_hours?: number | null
           id?: number
+          idempotency_key?: string | null
           incident_id?: number | null
           not_completed_reason?: string | null
           playbook_id?: number | null
@@ -522,6 +525,7 @@ export type Database = {
           dispatched_at: string | null
           expected_confidence_gain: number | null
           id: number
+          idempotency_key: string | null
           incident_id: number
           lat: number | null
           lng: number | null
@@ -542,6 +546,7 @@ export type Database = {
           dispatched_at?: string | null
           expected_confidence_gain?: number | null
           id?: number
+          idempotency_key?: string | null
           incident_id: number
           lat?: number | null
           lng?: number | null
@@ -562,6 +567,7 @@ export type Database = {
           dispatched_at?: string | null
           expected_confidence_gain?: number | null
           id?: number
+          idempotency_key?: string | null
           incident_id?: number
           lat?: number | null
           lng?: number | null
@@ -2503,6 +2509,23 @@ export type Database = {
         Args: { p_mission_id: number; p_outcome: string }
         Returns: undefined
       }
+      submit_field_completion: {
+        Args: {
+          p_action_id: number
+          p_action_performed: string
+          p_checklist_response: Json
+          p_completed_at?: string
+          p_idempotency_key: string
+          p_incident_id: number
+          p_lat?: number
+          p_lng?: number
+          p_not_completed_reason?: string
+          p_photo_urls: string[]
+          p_source_confirmed?: boolean
+          p_started_at?: string
+        }
+        Returns: undefined
+      }
       submit_incident_recurrence_report: {
         Args: {
           p_incident_id: number
@@ -2513,6 +2536,20 @@ export type Database = {
           p_recurrence_type: string
         }
         Returns: number
+      }
+      submit_mission_result: {
+        Args: {
+          p_checklist_response: Json
+          p_idempotency_key: string
+          p_incident_id: number
+          p_lat?: number
+          p_lng?: number
+          p_mission_id: number
+          p_notes?: string
+          p_outcome: string
+          p_proof_photo_url?: string
+        }
+        Returns: undefined
       }
       system_health_summary: {
         Args: never
