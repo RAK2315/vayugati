@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { BUILD_INFO, IS_PRODUCTION } from '../lib/env'
+import { BUILD_INFO } from '../lib/env'
 import { initOfflineSync } from '../lib/offlineSync'
 import MobileBottomNav from './MobileNav'
 import { OfflineBanner } from './ui'
@@ -263,11 +263,6 @@ export default function AppShell({
       <IconRail role={profile?.role} homePath={homePath} />
       <div className="flex min-w-0 flex-1 flex-col bg-white text-slate-900">
         <TopBar subtitle={subtitle} />
-        {!IS_PRODUCTION && (
-          <div className="border-b border-amber-300 bg-amber-50 px-3 py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-amber-800">
-            {BUILD_INFO.environment} - not production
-          </div>
-        )}
         <OfflineBanner />
         {secondaryNav ? (
           // Contextual nav: a column on desktop, a scrollable strip on narrow
