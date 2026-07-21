@@ -145,11 +145,6 @@ export default function CommandView() {
               forecasts,
               teams,
             )
-            const trustPct =
-              accuracy.totalWardPollutantPairs > 0
-                ? Math.round((accuracy.beatsPersistenceCount / accuracy.totalWardPollutantPairs) * 100)
-                : null
-
             const kpis: KpiItem[] = [
               { key: 'open', icon: AlertCircle, label: 'Open incidents', value: metrics.openCount, tone: 'info' },
               {
@@ -186,9 +181,13 @@ export default function CommandView() {
               {
                 key: 'trust',
                 icon: ShieldCheck,
-                label: 'Forecast trust',
-                value: trustPct != null ? `${trustPct}%` : '—',
-                tone: trustPct != null && trustPct >= 50 ? 'success' : 'warning',
+                label: 'Using machine learning',
+                value: accuracy.methodMix.total > 0 ? `${accuracy.methodMix.lightgbmCount}/${accuracy.methodMix.total}` : '—',
+                sublabel: 'rest use a safer baseline',
+                // Deliberately always 'info': a low count here means the
+                // forecast gate is being conservative, not that anything is
+                // broken — see docs/data/forecast-trust-ui-framing-report.md.
+                tone: 'info',
               },
             ]
 

@@ -266,23 +266,30 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
 
           {run.validation_metrics && Object.keys(run.validation_metrics as object).length > 0 && (
             <div className="mt-2">
-              <p className="text-[11px] font-semibold text-slate-600">Model accuracy by horizon (MAE vs. persistence)</p>
+              <p className="text-[11px] font-semibold text-slate-600">Model accuracy by horizon (MAE vs. best baseline)</p>
               <div className="mt-1 flex flex-wrap gap-2">
-                {Object.entries(run.validation_metrics as Record<string, { mae: number; persistence_mae: number; beats_persistence: boolean }>).map(
-                  ([h, m]) => (
-                    <span
-                      key={h}
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                        isHorizonValidated(run.max_validated_horizon_hours, Number(h))
-                          ? 'bg-status-success/10 text-status-success'
-                          : 'bg-slate-100 text-slate-500'
-                      }`}
-                      title={`Persistence MAE ${m.persistence_mae}`}
-                    >
-                      {h}h: MAE {m.mae}
-                    </span>
-                  ),
-                )}
+                {Object.entries(
+                  run.validation_metrics as Record<
+                    string,
+                    { mae: number; persistence_mae: number; beats_persistence: boolean; best_baseline?: string; best_baseline_mae?: number }
+                  >,
+                ).map(([h, m]) => (
+                  <span
+                    key={h}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                      isHorizonValidated(run.max_validated_horizon_hours, Number(h))
+                        ? 'bg-status-success/10 text-status-success'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}
+                    title={
+                      m.best_baseline_mae != null
+                        ? `Best baseline (${m.best_baseline ?? 'unknown'}) MAE ${m.best_baseline_mae}`
+                        : `Persistence MAE ${m.persistence_mae}`
+                    }
+                  >
+                    {h}h: MAE {m.mae}
+                  </span>
+                ))}
               </div>
             </div>
           )}

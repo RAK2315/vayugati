@@ -100,12 +100,15 @@ export default function AnalyticsView() {
         tone: 'info',
       },
       {
-        key: 'beatsBaseline',
+        key: 'usingMl',
         icon: TrendingUp,
-        label: 'Beat persistence baseline',
-        value: forecastAccuracy.data.beatsPersistenceCount,
-        sublabel: `of ${forecastAccuracy.data.totalWardPollutantPairs} pairs`,
-        tone: forecastAccuracy.data.beatsPersistenceCount > 0 ? 'success' : 'neutral',
+        label: 'Using machine learning',
+        value: forecastAccuracy.data.methodMix.lightgbmCount,
+        sublabel: `of ${forecastAccuracy.data.methodMix.total} pairs - rest use a safer baseline`,
+        // Deliberately always 'info', never conditional on the count: a low
+        // number here means the gate is being conservative, not that
+        // anything is broken - see docs/data/forecast-trust-ui-framing-report.md.
+        tone: 'info',
       },
     ]
   }, [kpiLoading, gati.data, forecastAccuracy.data, timeToResolutionHours, windowLabel])

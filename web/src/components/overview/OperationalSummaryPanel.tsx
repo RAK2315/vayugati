@@ -1,5 +1,6 @@
 import { Activity } from 'lucide-react'
 import type { ForecastAccuracySummary, GatiMetrics } from '../../lib/data'
+import { modelSelectionExplainer } from '../../lib/forecastTrustRules'
 import type { DispatchSlaBuckets } from '../../lib/overviewRules'
 import { Card, CardHeader, Stat } from '../ui'
 
@@ -15,11 +16,6 @@ export default function OperationalSummaryPanel({
   slaBuckets: DispatchSlaBuckets
   accuracy: ForecastAccuracySummary
 }) {
-  const trustPct =
-    accuracy.totalWardPollutantPairs > 0
-      ? Math.round((accuracy.beatsPersistenceCount / accuracy.totalWardPollutantPairs) * 100)
-      : null
-
   return (
     <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <CardHeader
@@ -58,17 +54,7 @@ export default function OperationalSummaryPanel({
           </div>
         </div>
 
-        <p className="text-sm text-slate-600">
-          {trustPct != null ? (
-            <>
-              Forecasts beat a naive persistence baseline on{' '}
-              <span className="font-semibold text-slate-800">{trustPct}%</span> of validated ward/pollutant pairs
-              ({accuracy.beatsPersistenceCount} of {accuracy.totalWardPollutantPairs}).
-            </>
-          ) : (
-            'Not enough validated forecast history yet to report accuracy.'
-          )}
-        </p>
+        <p className="text-sm text-slate-600">{modelSelectionExplainer(accuracy.methodMix)}</p>
       </div>
     </Card>
   )

@@ -1,4 +1,13 @@
 import type { Database } from './database.types'
+import {
+  summarizeBaselineWinners,
+  summarizeForecastCoverage,
+  summarizeForecastMethodMix,
+  type BaselineWinnerTally,
+  type ForecastCoverageSummary,
+  type ForecastMethodMix,
+  type ForecastRunLike,
+} from './forecastTrustRules'
 import { supabase } from './supabase'
 
 /** Enum types come from the generated schema, so a DB change surfaces as a
@@ -621,6 +630,18 @@ export interface ForecastAccuracySummary {
   totalWardPollutantPairs: number
   beatsPersistenceCount: number
   wardsWithAnyValidatedHorizon: number
+  /** Model-selection breakdown (lightgbm vs. diurnal_persistence vs. the
+   *  unused-in-practice defensive "other" bucket) - the honest denominator
+   *  behind "the low LightGBM rate", not hidden behind a single percentage. */
+  methodMix: ForecastMethodMix
+  /** Which of the 4 candidate baselines is hardest to beat, if the fleet
+   *  has any post-baseline-gate-upgrade rows yet (docs/data/
+   *  forecast-baseline-gate-upgrade.md) - null-safe for a still-mixed or
+   *  fully pre-upgrade fleet, see forecastTrustRules.ts. */
+  baselineWinners: BaselineWinnerTally
+  /** Coverage/freshness - "is the engine actually producing forecasts, and
+   *  recently" - distinct from "does the model beat a baseline". */
+  coverage: ForecastCoverageSummary
 }
 
 /** Latest forecast_runs row per (ward_id, pollutant) — a ward/pollutant pair
@@ -628,31 +649,38 @@ export interface ForecastAccuracySummary {
  *  matching fetchLatestForecastRun's own ordering. beats_persistence and
  *  max_validated_horizon_hours are exactly the two honest trust signals
  *  docs/HISTORICAL_REPLAY_REPORT.md establishes - never fabricate an
- *  accuracy percentage beyond what those two columns already say. */
+ *  accuracy percentage beyond what those two columns already say. `method`
+ *  and `validation_metrics` are read alongside them (same row, no extra
+ *  query) purely to derive the plain-language framing in
+ *  forecastTrustRules.ts — never a second source of truth. */
 export async function fetchForecastAccuracySummary(): Promise<ForecastAccuracySummary> {
   const { data } = await supabase
     .from('forecast_runs')
-    .select('ward_id, pollutant, beats_persistence, max_validated_horizon_hours, generated_at')
+    .select('ward_id, pollutant, method, beats_persistence, max_validated_horizon_hours, generated_at, validation_metrics')
     .order('generated_at', { ascending: false })
     .limit(2000)
 
-  const latestByPair = new Map<string, { beats_persistence: boolean; max_validated_horizon_hours: number | null }>()
+  const latestByPair = new Map<string, ForecastRunLike>()
   for (const row of data ?? []) {
     const key = `${row.ward_id}:${row.pollutant}`
     if (!latestByPair.has(key)) latestByPair.set(key, row) // first hit per pair = newest, thanks to the order() above
   }
+  const latestRows = [...latestByPair.values()]
 
   let beatsPersistenceCount = 0
   let wardsWithAnyValidatedHorizon = 0
-  for (const entry of latestByPair.values()) {
+  for (const entry of latestRows) {
     if (entry.beats_persistence) beatsPersistenceCount++
     if (entry.max_validated_horizon_hours != null) wardsWithAnyValidatedHorizon++
   }
 
   return {
-    totalWardPollutantPairs: latestByPair.size,
+    totalWardPollutantPairs: latestRows.length,
     beatsPersistenceCount,
     wardsWithAnyValidatedHorizon,
+    methodMix: summarizeForecastMethodMix(latestRows),
+    baselineWinners: summarizeBaselineWinners(latestRows),
+    coverage: summarizeForecastCoverage(latestRows),
   }
 }
 
