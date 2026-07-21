@@ -280,6 +280,37 @@ def _baseline_forecast(hist_local_excess: list[float], future_idx: pd.DatetimeIn
     return persistence, diurnal
 
 
+ROLLING_AVG_WINDOW_H = 24
+
+
+def _same_hour_yesterday_baseline(hist_local_excess: list[float], n_future: int) -> np.ndarray:
+    """Seasonal-naive baseline: hour i of the forecast repeats hour i of the
+    most recent 24h of known history (cycled forward for i > 24). Every
+    referenced value is drawn from `hist_local_excess` alone — never from
+    the baseline's own prior predictions or anything in `future_idx` — so
+    this stays causally valid (no peeking at data that wouldn't exist yet
+    at real forecast-generation time) for every one of the 4 supported
+    horizons, including 48h, unlike a naive `t - 24h` lookup (which for
+    i > 24 would land inside the forecast window itself).
+    Falls back to flat persistence (the last known value, repeated) when
+    there's under 24h of history to draw a cycle from — a real, honest
+    degradation, not a crash."""
+    if len(hist_local_excess) < ROLLING_AVG_WINDOW_H:
+        return np.full(n_future, hist_local_excess[-1])
+    last_24h = np.array(hist_local_excess[-ROLLING_AVG_WINDOW_H:])
+    reps = int(np.ceil(n_future / ROLLING_AVG_WINDOW_H))
+    return np.tile(last_24h, reps)[:n_future]
+
+
+def _rolling_average_baseline(hist_local_excess: list[float], n_future: int) -> np.ndarray:
+    """Flat baseline at the mean of the most recent ROLLING_AVG_WINDOW_H
+    hours of known history (or all of history, if there's less than that) —
+    smooths out single-hour noise persistence can't, at the cost of
+    reacting slower to a genuine trend."""
+    window = hist_local_excess[-ROLLING_AVG_WINDOW_H:] if len(hist_local_excess) >= ROLLING_AVG_WINDOW_H else hist_local_excess
+    return np.full(n_future, float(np.mean(window)))
+
+
 def _validate(
     w: pd.DataFrame,
     weather: pd.DataFrame,
@@ -306,6 +337,17 @@ def _validate(
 
     by_hour = excess.iloc[:split].groupby(excess.iloc[:split].index.hour).mean()
     persistence, diurnal = _baseline_forecast(train_hist, holdout_idx, by_hour)
+    same_hour_yesterday = _same_hour_yesterday_baseline(train_hist, len(holdout_idx))
+    rolling_avg = _rolling_average_baseline(train_hist, len(holdout_idx))
+    # Named once here so both the per-horizon loop and the "which baseline
+    # won" bookkeeping stay in lockstep — add a fifth candidate by adding
+    # one entry to this dict, nowhere else.
+    baseline_preds = {
+        "persistence": persistence,
+        "diurnal": diurnal,
+        "same_hour_yesterday": same_hour_yesterday,
+        "rolling_24h_avg": rolling_avg,
+    }
 
     use_lgb = n >= MIN_TRAIN_ROWS and _HAS_LGB
     model_pred = diurnal
@@ -328,11 +370,25 @@ def _validate(
             continue
         a = holdout_actual[:upto][mask] + baseline_value_at_split
         m = model_pred[:upto][mask] + baseline_value_at_split
-        p = persistence[:upto][mask] + baseline_value_at_split
 
-        model_mae, persist_mae = _mae(m, a), _mae(p, a)
+        model_mae = _mae(m, a)
         recall, false_alarm = _threshold_metrics(m, a, threshold)
-        beats = persist_mae > 0 and model_mae <= persist_mae * (1 - min_mae_improvement_pct / 100.0)
+
+        # Every candidate baseline's MAE at this horizon — persistence is
+        # kept as its own named field below (existing consumers, notably
+        # PredictedIncidentPanel.tsx, read `persistence_mae` directly and
+        # display it verbatim; that number's meaning is unchanged). The
+        # model is now judged against whichever candidate is hardest to
+        # beat, not persistence alone — same-hour-yesterday and a 24h
+        # rolling average are real, cheap-to-compute baselines that can
+        # legitimately beat persistence at short horizons for a noisy
+        # pollutant series (confirmed for Rohini/pm25 in
+        # docs/data/rohini-pm25-forecast-validation.md), so a model that
+        # only clears persistence isn't yet a genuinely useful upgrade.
+        baseline_maes = {name: _mae(pred[:upto][mask] + baseline_value_at_split, a) for name, pred in baseline_preds.items()}
+        best_baseline = min(baseline_maes, key=baseline_maes.get)
+        best_baseline_mae = baseline_maes[best_baseline]
+        beats = best_baseline_mae > 0 and model_mae <= best_baseline_mae * (1 - min_mae_improvement_pct / 100.0)
 
         metrics[str(h)] = {
             "mae": round(model_mae, 2),
@@ -340,13 +396,29 @@ def _validate(
             "bias": round(_bias(m, a), 2),
             "threshold_recall": round(recall, 2) if recall is not None else None,
             "false_alarm_rate": round(false_alarm, 2) if false_alarm is not None else None,
-            "persistence_mae": round(persist_mae, 2),
+            "persistence_mae": round(baseline_maes["persistence"], 2),
+            "diurnal_mae": round(baseline_maes["diurnal"], 2),
+            "same_hour_yesterday_mae": round(baseline_maes["same_hour_yesterday"], 2),
+            "rolling_24h_avg_mae": round(baseline_maes["rolling_24h_avg"], 2),
+            "best_baseline": best_baseline,
+            "best_baseline_mae": round(best_baseline_mae, 2),
+            # Kept as `beats_persistence` (not renamed — forecast_runs has no
+            # schema for a differently-named column, and PredictedIncidentPanel.tsx
+            # reads this exact key) but now means "beat the strongest of ALL
+            # candidate baselines", a strictly harder bar than the old
+            # persistence-only check: best_baseline_mae <= persistence_mae
+            # always (persistence is itself one of the candidates), so
+            # beats=true here still guarantees the model beat plain
+            # persistence too — this can only make the flag true LESS often
+            # than before, never more. Existing readers (the anomaly-
+            # detection SQL's `fr.beats_persistence` gate, the UI's
+            # "Persistence MAE" tooltip) become more conservative, not wrong.
             "beats_persistence": bool(beats),
         }
         # Monotonic and conservative on purpose: this horizon only becomes
         # the new max-validated one if it AND every smaller configured
-        # horizon have all beaten persistence — a model that wins at 24h but
-        # loses at 6h is not "validated to 24h".
+        # horizon have all beaten the strongest available baseline — a
+        # model that wins at 24h but loses at 6h is not "validated to 24h".
         if all(metrics.get(str(hh), {}).get("beats_persistence") for hh in HORIZONS_H if hh <= h):
             max_validated = h
 

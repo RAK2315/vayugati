@@ -137,6 +137,35 @@ def test_diurnal_baseline_falls_back_to_last_value_for_an_unseen_hour():
     assert diurnal[0] == pytest.approx(77.0)
 
 
+def test_same_hour_yesterday_repeats_the_last_24h_cycled_forward():
+    # last 24h = 0..23; forecasting 30h ahead should repeat hours 0..23 then
+    # wrap to 0..5 for the remaining 6 - never reach into its own future.
+    hist = list(range(48)) + list(range(24))  # last 24 values are 0..23
+    pred = forecast._same_hour_yesterday_baseline(hist, n_future=30)
+    assert len(pred) == 30
+    assert list(pred[:24]) == list(range(24))
+    assert list(pred[24:30]) == list(range(6))
+
+
+def test_same_hour_yesterday_falls_back_to_persistence_under_24h_history():
+    hist = [10.0, 20.0, 33.0]  # under ROLLING_AVG_WINDOW_H (24)
+    pred = forecast._same_hour_yesterday_baseline(hist, n_future=5)
+    assert (pred == 33.0).all()
+
+
+def test_rolling_average_baseline_is_the_mean_of_the_last_24h():
+    hist = list(range(1, 100))  # 1..99; last 24 = 76..99
+    pred = forecast._rolling_average_baseline(hist, n_future=3)
+    assert pred == pytest.approx(np.mean(range(76, 100)))
+    assert len(pred) == 3
+
+
+def test_rolling_average_baseline_uses_all_history_when_under_the_window():
+    hist = [10.0, 20.0, 30.0]
+    pred = forecast._rolling_average_baseline(hist, n_future=2)
+    assert pred == pytest.approx(20.0)
+
+
 # ── time-based validation (never random) ─────────────────────────────────────
 
 
@@ -205,6 +234,61 @@ def test_validate_handles_too_little_data_without_crashing():
     assert beats is False
     assert max_validated is None
     assert metrics == {}
+
+
+def test_beats_persistence_now_requires_beating_the_best_baseline_not_just_persistence():
+    """The core behavior change: a model that clears plain persistence but
+    loses to a STRONGER available baseline (same-hour-yesterday, here) must
+    NOT be marked as beating persistence — the old gate would have wrongly
+    passed this. A trend + strong 24h period is a realistic shape for this:
+    persistence (flat) can't track either the cycle or the trend; a
+    same-hour-yesterday lookup tracks both almost perfectly; a diurnal
+    hour-of-day average (this test's `model_pred`, since n < MIN_TRAIN_ROWS
+    keeps it off the LightGBM path) smooths across many days and so lags
+    the trend - genuinely better than persistence, genuinely worse than
+    same-hour-yesterday."""
+    n = 200  # < MIN_TRAIN_ROWS -> model_pred stays diurnal, no LightGBM involved
+    idx = pd.date_range("2026-01-01", periods=n, freq="h", tz="UTC")
+    day_idx = np.arange(n) // 24
+    trend = 1.5 * day_idx
+    values = 50 + trend + 20 * np.sin(2 * np.pi * idx.hour / 24)
+    w = pd.DataFrame({"local_excess": values, "baseline": 0.0, "value": values}, index=idx)
+    weather = pd.DataFrame({"temp_c": 25.0, "humidity": 50.0, "wind_speed": 5.0, "wind_dir": 180.0, "precipitation": 0.0}, index=idx)
+    city_avg = pd.Series(50.0, index=idx)
+
+    method, metrics, max_validated, beats = forecast._validate(
+        w, weather, city_avg, threshold=None, baseline_value_at_split=0.0, min_mae_improvement_pct=5.0
+    )
+
+    m24 = metrics["24"]
+    assert m24["mae"] < m24["persistence_mae"], "fixture assumption: model must beat plain persistence at 24h"
+    assert m24["best_baseline"] == "same_hour_yesterday"
+    assert m24["mae"] > m24["best_baseline_mae"], "fixture assumption: model must lose to same-hour-yesterday at 24h"
+    # the actual assertion under test: beating persistence alone is no
+    # longer enough to be marked "beats_persistence" at this horizon
+    assert m24["beats_persistence"] is False
+    assert method == forecast.MODEL_VERSION_DIURNAL
+
+
+def test_validation_metrics_include_all_four_baseline_maes_and_best_baseline():
+    n = 300
+    idx = pd.date_range("2026-01-01", periods=n, freq="h", tz="UTC")
+    rng = np.random.default_rng(RNG_SEED)
+    values = 50 + 30 * np.sin(2 * np.pi * idx.hour / 24) + rng.normal(0, 1, n)
+    w = pd.DataFrame({"local_excess": values, "baseline": 0.0, "value": values}, index=idx)
+    weather = pd.DataFrame({"temp_c": 25.0, "humidity": 50.0, "wind_speed": 5.0, "wind_dir": 180.0, "precipitation": 0.0}, index=idx)
+    city_avg = pd.Series(50.0, index=idx)
+
+    _, metrics, _, _ = forecast._validate(
+        w, weather, city_avg, threshold=None, baseline_value_at_split=0.0, min_mae_improvement_pct=5.0
+    )
+    for h_metrics in metrics.values():
+        for key in ("persistence_mae", "diurnal_mae", "same_hour_yesterday_mae", "rolling_24h_avg_mae", "best_baseline", "best_baseline_mae"):
+            assert key in h_metrics
+        assert h_metrics["best_baseline"] in ("persistence", "diurnal", "same_hour_yesterday", "rolling_24h_avg")
+        # best_baseline_mae must genuinely be the minimum of the four named MAEs
+        named = [h_metrics["persistence_mae"], h_metrics["diurnal_mae"], h_metrics["same_hour_yesterday_mae"], h_metrics["rolling_24h_avg_mae"]]
+        assert h_metrics["best_baseline_mae"] == pytest.approx(min(named))
 
 
 def test_beats_persistence_is_monotonic_across_horizons():
