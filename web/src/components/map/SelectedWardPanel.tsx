@@ -1,8 +1,9 @@
 import { ChevronRight, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { Attribution, WardForecastSummary, WardSummary } from '../../lib/data'
+import { forecastFallbackStatus, FORECAST_METHOD_LABEL, type ForecastMethod } from '../../lib/incidentRules'
 import { confidenceAtPeak, hotspotStatus, HOTSPOT_STATUS_LABEL, type TimeWindowHours } from '../../lib/overviewRules'
-import type { ActiveTaskDispatch, Incident } from '../../lib/incidents'
+import type { ActiveTaskDispatch, ForecastRunRow, Incident } from '../../lib/incidents'
 import { MAP_POLLUTANT_LABEL, stationReadingValue, type MapPollutant } from '../../lib/mapRules'
 import { Skeleton } from '../ui'
 
@@ -21,6 +22,8 @@ export default function SelectedWardPanel({
   linkedDispatches,
   attribution,
   attributionLoading,
+  latestForecastRun,
+  latestForecastRunLoading,
   onClose,
 }: {
   ward: WardSummary
@@ -30,6 +33,12 @@ export default function SelectedWardPanel({
   linkedDispatches: ActiveTaskDispatch[]
   attribution: Attribution | null | undefined
   attributionLoading: boolean
+  /** PM2.5's latest validation record for this ward - same table
+   *  PredictedIncidentPanel.tsx reads, just surfaced here too so "is this
+   *  forecast ML-validated or a conservative baseline fallback" is visible
+   *  without leaving the Map. */
+  latestForecastRun: ForecastRunRow | null | undefined
+  latestForecastRunLoading: boolean
   onClose: () => void
 }) {
   const reading = stationReadingValue(ward, pollutant)
@@ -77,6 +86,28 @@ export default function SelectedWardPanel({
           <dd className="font-semibold capitalize text-slate-800">{ward.dominant_source?.replace(/_/g, ' ') ?? 'Unknown'}</dd>
         </div>
       </dl>
+
+      <div className="mt-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">PM2.5 forecast status</p>
+        {latestForecastRunLoading ? (
+          <Skeleton className="mt-1 h-10 w-full" />
+        ) : latestForecastRun ? (
+          (() => {
+            const method: ForecastMethod = latestForecastRun.method === 'lightgbm' ? 'lightgbm' : 'diurnal_persistence'
+            return (
+              <div className="mt-1 rounded-lg bg-slate-50 px-2.5 py-2 text-[11px] text-slate-600">
+                <p className="font-semibold text-slate-800">{FORECAST_METHOD_LABEL[method]}</p>
+                <p className="mt-0.5">{forecastFallbackStatus(method, latestForecastRun.beats_persistence)}</p>
+                <p className="mt-1 text-slate-400">
+                  Latest cycle: {new Date(latestForecastRun.generated_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                </p>
+              </div>
+            )
+          })()
+        ) : (
+          <p className="mt-1 text-xs text-slate-400">No forecast validation record yet for this ward.</p>
+        )}
+      </div>
 
       <div className="mt-3 rounded-lg bg-slate-50 px-2.5 py-2 text-[11px] text-slate-600">
         <span className="font-semibold">Recommended next action:</span> {NEXT_ACTION[status]}

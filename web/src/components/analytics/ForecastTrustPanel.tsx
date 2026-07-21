@@ -58,6 +58,14 @@ export default function ForecastTrustPanel({
             <span>{forecastEngineStatusLine(data.coverage)}</span>
           </div>
 
+          <p className="mt-1.5 text-[11px] text-slate-400">
+            Covering {data.reach.distinctWardCount} ward{data.reach.distinctWardCount === 1 ? '' : 's'} across{' '}
+            {data.reach.pollutants.length} pollutant{data.reach.pollutants.length === 1 ? '' : 's'}
+            {data.reach.pollutants.length > 0 && ` (${data.reach.pollutants.map((p) => p.toUpperCase()).join(', ')})`}
+            {data.coverage.latestGeneratedAt &&
+              ` - latest cycle ${new Date(data.coverage.latestGeneratedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`}
+          </p>
+
           <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{modelSelectionExplainer(data.methodMix)}</p>
 
           <div className="mt-3 grid grid-cols-2 gap-2">

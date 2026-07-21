@@ -7,6 +7,7 @@ import {
   summarizeBaselineWinners,
   summarizeForecastCoverage,
   summarizeForecastMethodMix,
+  summarizeForecastReach,
 } from './forecastTrustRules'
 
 // ── method mix ────────────────────────────────────────────────────────────
@@ -108,6 +109,26 @@ describe('summarizeBaselineWinners', () => {
     // null slipping through (e.g. a hand-inserted test row) anyway.
     const tally = summarizeBaselineWinners([{ validation_metrics: null as unknown as Record<string, never> }])
     expect(tally.rowsWithoutBaselineData).toBe(1)
+  })
+})
+
+// ── reach ─────────────────────────────────────────────────────────────────
+
+describe('summarizeForecastReach', () => {
+  it('counts distinct wards and pollutants separately from the raw pair count', () => {
+    const rows = [
+      { ward_id: 1, pollutant: 'pm25' },
+      { ward_id: 1, pollutant: 'pm10' },
+      { ward_id: 1, pollutant: 'no2' },
+      { ward_id: 2, pollutant: 'pm25' },
+    ]
+    const reach = summarizeForecastReach(rows)
+    expect(reach.distinctWardCount).toBe(2)
+    expect(reach.pollutants).toEqual(['no2', 'pm10', 'pm25'])
+  })
+
+  it('handles an empty array without crashing', () => {
+    expect(summarizeForecastReach([])).toEqual({ distinctWardCount: 0, pollutants: [] })
   })
 })
 

@@ -127,6 +127,26 @@ export function summarizeBaselineWinners(rows: { validation_metrics: Json }[]): 
   return { counts, totalHorizonEntries, rowsWithBaselineData, rowsWithoutBaselineData }
 }
 
+// ── reach: how much of the city/pollutant surface does this cover? ──────────
+
+export interface ForecastReachSummary {
+  distinctWardCount: number
+  pollutants: string[]
+}
+
+/** Distinct wards and pollutants represented in the given rows - answers
+ *  "wards/pollutants covered", separate from the raw pair count
+ *  (ForecastMethodMix.total mixes wards × pollutants together). */
+export function summarizeForecastReach(rows: { ward_id: number; pollutant: string }[]): ForecastReachSummary {
+  const wardIds = new Set<number>()
+  const pollutants = new Set<string>()
+  for (const r of rows) {
+    wardIds.add(r.ward_id)
+    pollutants.add(r.pollutant)
+  }
+  return { distinctWardCount: wardIds.size, pollutants: [...pollutants].sort() }
+}
+
 // ── coverage & staleness: is the engine actually running, and recently? ─────
 
 /** Display-only heuristic, not a backend threshold - same spirit as

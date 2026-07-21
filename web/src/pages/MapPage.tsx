@@ -28,6 +28,7 @@ import {
 } from '../lib/data'
 import type { Severity, SourceCategory } from '../lib/incidentRules'
 import {
+  fetchLatestForecastRun,
   listActiveTaskDispatches,
   listIncidents,
   listLeadingSourceCategories,
@@ -153,6 +154,15 @@ export default function MapPage() {
   const selectedWardId = selection?.kind === 'ward' ? selection.id : null
   const attributionState = useAsync(
     () => (selectedWardId == null ? Promise.resolve(null) : fetchAttribution(selectedWardId)),
+    [selectedWardId],
+    { enabled: selectedWardId != null },
+  )
+  // PM2.5 only, matching this panel's other forecast fields (peak/excess/
+  // confidence all come from fetchAllForecasts()'s own pm25-only scope) -
+  // reuses the same fetchLatestForecastRun() PredictedIncidentPanel.tsx
+  // already uses, not a new query shape.
+  const latestForecastRunState = useAsync(
+    () => (selectedWardId == null ? Promise.resolve(null) : fetchLatestForecastRun(selectedWardId, 'pm25')),
     [selectedWardId],
     { enabled: selectedWardId != null },
   )
@@ -429,6 +439,8 @@ export default function MapPage() {
                     linkedDispatches={dispatchPage.rows.filter((d) => d.ward_name === selectedWard.name)}
                     attribution={attributionState.data}
                     attributionLoading={attributionState.loading}
+                    latestForecastRun={latestForecastRunState.data}
+                    latestForecastRunLoading={latestForecastRunState.loading}
                     onClose={() => setSelection(null)}
                   />
                 ) : selectedStation ? (

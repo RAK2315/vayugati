@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
-import { Activity, Gauge, MapPin, PlugZap, RefreshCw, TriangleAlert, Wind } from 'lucide-react'
+import { Activity, Gauge, Info, MapPin, PlugZap, RefreshCw, TriangleAlert, Wind } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { ErrorState, Skeleton, StaleBadge } from '../components/ui'
 import KpiStrip, { type KpiItem } from '../components/overview/KpiStrip'
+import DataReadinessCard from '../components/sensors/DataReadinessCard'
 import SensorDetailPanel from '../components/sensors/SensorDetailPanel'
 import SensorFilterBar, { ALL, type SensorFilters } from '../components/sensors/SensorFilterBar'
 import SensorHealthTable, { type SensorRow } from '../components/sensors/SensorHealthTable'
 import { sensorStatus, type SensorStatus } from '../components/sensors/SensorStatusBadge'
 import { useAuth } from '../lib/auth'
-import { fetchAllStationsWithReadings } from '../lib/data'
+import { fetchAllStationsWithReadings, fetchDataFootprint, fetchForecastAccuracySummary } from '../lib/data'
 import { listIncidents } from '../lib/incidents'
 import { fetchStationHealth, setStationActive, type StationHealthRow } from '../lib/ops'
+import type { DataReadinessInput } from '../lib/readinessRules'
 import { useAsync } from '../lib/useAsync'
 
 /**
@@ -35,6 +37,11 @@ export default function SensorsView() {
   const state = useAsync(() => Promise.all([fetchStationHealth(), fetchAllStationsWithReadings()]), [])
   const incidentsState = useAsync(() => listIncidents({ excludeClosed: true, limit: 1000 }), [])
   const openIncidents = incidentsState.data ?? []
+
+  // Readiness card's own inputs - independent fetches (not blocking the
+  // station table above), same pattern as Analytics' forecastAccuracy hook.
+  const footprintState = useAsync(fetchDataFootprint, [])
+  const forecastAccuracyState = useAsync(fetchForecastAccuracySummary, [])
 
   const rows: SensorRow[] = useMemo(() => {
     if (!state.data) return []
@@ -78,6 +85,23 @@ export default function SensorsView() {
   const isFiltered = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS)
   const selected = selectedId != null ? rows.find((r) => r.id === selectedId) : undefined
   const selectedWardIncidents = selected ? openIncidents.filter((i) => i.ward_id === selected.ward_id) : []
+
+  const staleOrNoDataCount = useMemo(
+    () => rows.filter((r) => sensorStatus(r) === 'stale' || sensorStatus(r) === 'no_data').length,
+    [rows],
+  )
+
+  const readinessInput: DataReadinessInput | null = useMemo(() => {
+    if (state.loading || !footprintState.data || !forecastAccuracyState.data) return null
+    return {
+      wardBoundaryCount: footprintState.data.wardBoundaryCount,
+      stationCount: rows.length,
+      activeStationCount: rows.filter((r) => r.is_active).length,
+      forecastFreshCount: forecastAccuracyState.data.coverage.freshCount,
+      forecastTotalPairs: forecastAccuracyState.data.coverage.totalPairs,
+      totalReadingsCount: footprintState.data.totalReadingsCount,
+    }
+  }, [state.loading, footprintState.data, forecastAccuracyState.data, rows])
 
   const toggle = async (station: SensorRow) => {
     if (!session) return
@@ -164,6 +188,16 @@ export default function SensorsView() {
           <SensorFilterBar filters={filters} onChange={setFilters} statuses={statuses} wards={wards} sensorTypes={sensorTypes} />
         )}
 
+        {!state.loading && !state.error && staleOrNoDataCount > 0 && (
+          <div className="flex items-start gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-500 shadow-card">
+            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-slate-400" aria-hidden />
+            <span>
+              {staleOrNoDataCount} station{staleOrNoDataCount === 1 ? '' : 's'} showing stale or no data - some of this is expected
+              (upstream OpenAQ publish delays, or a known gap - see Data Readiness for specifics), not necessarily a broken sensor.
+            </span>
+          </div>
+        )}
+
         <div className="flex min-h-0 flex-1 gap-3">
           <SensorHealthTable
             rows={filteredRows}
@@ -175,17 +209,21 @@ export default function SensorsView() {
             onSelect={setSelectedId}
             isFiltered={isFiltered}
           />
-          {selected && (
-            <div className="w-80 flex-shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
-              <SensorDetailPanel
-                station={selected}
-                linkedIncidents={selectedWardIncidents}
-                onToggleActive={() => toggle(selected)}
-                toggleBusy={busyId === selected.id}
-                onClose={() => setSelectedId(null)}
-              />
-            </div>
-          )}
+          <div className="w-80 flex-shrink-0 overflow-y-auto">
+            {selected ? (
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+                <SensorDetailPanel
+                  station={selected}
+                  linkedIncidents={selectedWardIncidents}
+                  onToggleActive={() => toggle(selected)}
+                  toggleBusy={busyId === selected.id}
+                  onClose={() => setSelectedId(null)}
+                />
+              </div>
+            ) : (
+              <DataReadinessCard input={readinessInput} loading={readinessInput == null} />
+            )}
+          </div>
         </div>
       </div>
     </AppShell>

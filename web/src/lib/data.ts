@@ -3,9 +3,11 @@ import {
   summarizeBaselineWinners,
   summarizeForecastCoverage,
   summarizeForecastMethodMix,
+  summarizeForecastReach,
   type BaselineWinnerTally,
   type ForecastCoverageSummary,
   type ForecastMethodMix,
+  type ForecastReachSummary,
   type ForecastRunLike,
 } from './forecastTrustRules'
 import { supabase } from './supabase'
@@ -642,6 +644,9 @@ export interface ForecastAccuracySummary {
   /** Coverage/freshness - "is the engine actually producing forecasts, and
    *  recently" - distinct from "does the model beat a baseline". */
   coverage: ForecastCoverageSummary
+  /** How much of the city/pollutant surface this covers - separate from the
+   *  raw pair count, which mixes wards × pollutants together. */
+  reach: ForecastReachSummary
 }
 
 /** Latest forecast_runs row per (ward_id, pollutant) — a ward/pollutant pair
@@ -681,6 +686,35 @@ export async function fetchForecastAccuracySummary(): Promise<ForecastAccuracySu
     methodMix: summarizeForecastMethodMix(latestRows),
     baselineWinners: summarizeBaselineWinners(latestRows),
     coverage: summarizeForecastCoverage(latestRows),
+    reach: summarizeForecastReach(latestRows),
+  }
+}
+
+// ── data footprint (launch readiness): how much real data is loaded? ────────
+
+export interface DataFootprint {
+  wardBoundaryCount: number
+  totalReadingsCount: number
+  earliestReadingAt: string | null
+  latestReadingAt: string | null
+}
+
+/** Count-only, head:true queries (no rows transferred) - cheap enough to run
+ *  on every Sensors page load, unlike fetchAllWardBoundaries' full ~8MB
+ *  geometry payload. Backs the Data Readiness card's real numbers - never a
+ *  hardcoded "250 wards" / "44k readings" string, always the live count. */
+export async function fetchDataFootprint(): Promise<DataFootprint> {
+  const [wardBoundaries, readingsCount, earliest, latest] = await Promise.all([
+    supabase.from('wards').select('id', { count: 'exact', head: true }).not('boundary', 'is', null),
+    supabase.from('readings').select('id', { count: 'exact', head: true }),
+    supabase.from('readings').select('ts').order('ts', { ascending: true }).limit(1).maybeSingle(),
+    supabase.from('readings').select('ts').order('ts', { ascending: false }).limit(1).maybeSingle(),
+  ])
+  return {
+    wardBoundaryCount: wardBoundaries.count ?? 0,
+    totalReadingsCount: readingsCount.count ?? 0,
+    earliestReadingAt: earliest.data?.ts ?? null,
+    latestReadingAt: latest.data?.ts ?? null,
   }
 }
 
