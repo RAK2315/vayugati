@@ -10,6 +10,14 @@
 # Entries with a null id are skipped (with a warning) until filled in.
 # Station name and coordinates are taken from OpenAQ metadata at ingest
 # time, so nothing else is needed per station.
+#
+# 2026-07-21 station config repair (see
+# docs/data/delhi-station-reconciliation.md and
+# docs/data/station-config-repair-report.md): OpenAQ carries two location
+# ids per physical CPCB/DPCC station in Delhi — an old one frozen years ago
+# and a live one still reporting. Anand Vihar and Punjabi Bagh below were
+# pointed at the frozen id; verified live ids substituted (coordinates
+# confirmed identical — same physical station, not a relocation).
 
 stations:
   - ward: Narela
@@ -23,18 +31,61 @@ stations:
   - ward: Rohini
     openaq_location_id: 10831  # Rohini, Delhi - DPCC
   - ward: R.K. Puram
-    openaq_location_id: null   # not found in OpenAQ India stations
+    openaq_location_id: 17     # R K Puram, Delhi - DPCC — was null ("not found in
+                                # OpenAQ"); that was stale. Verified live 2026-07-21.
   - ward: Okhla
     openaq_location_id: 8239   # Okhla Phase-2, Delhi - DPCC
   - ward: Jahangirpuri
     openaq_location_id: 8235   # Jahangirpuri, Delhi - DPCC
   - ward: Anand Vihar
-    openaq_location_id: 10487  # Anand Vihar, Delhi - DPCC
+    openaq_location_id: 235    # Anand Vihar, New Delhi - DPCC — was 10487, a dead
+                                # OpenAQ id frozen since 2021-09-20. Repointed to the
+                                # live id 2026-07-21; same physical station/coords.
   - ward: Vivek Vihar
     openaq_location_id: 6938   # Vivek Vihar, Delhi - DPCC
   - ward: Punjabi Bagh
-    openaq_location_id: 6357   # Punjabi Bagh, Delhi - DPCC
+    openaq_location_id: 50     # Punjabi Bagh, Delhi - DPCC — was 6357, a dead
+                                # OpenAQ id frozen since 2022-10-16. Repointed to the
+                                # live id 2026-07-21; same physical station/coords.
   - ward: Mayapuri
-    openaq_location_id: null   # not found in OpenAQ India stations
+    openaq_location_id: null   # UNRESOLVED, not a data gap: Mayapuri has no official
+                                # CPCB/DPCC/IMD CAAQMS station at all (absent from the
+                                # 79-row CPCB reference list) and no matching OpenAQ
+                                # location exists in the Delhi/NCR search. Confirmed
+                                # 2026-07-21 (docs/data/delhi-station-reconciliation.md
+                                # Finding 3). DO NOT GUESS / DO NOT fabricate a station
+                                # here. If a ward-level forecast is ever needed for
+                                # Mayapuri, it must be produced as a spatial proxy
+                                # (e.g. interpolated from Punjabi Bagh/Dwarka) and
+                                # explicitly labelled proxy-derived — never backed by
+                                # a stations.yaml/stations-table row implying a real
+                                # monitor exists here.
   - ward: Dwarka
     openaq_location_id: 6931   # Dwarka-Sector 8, Delhi - DPCC
+
+# --- 2026-07-21 Delhi CAAQMS expansion (see
+# docs/data/delhi-station-expansion-report.md) ---
+# These 7 are official CPCB/DPCC/IMD stations from
+# data/delhi/processed/cpcb_caaqms_station_reference.csv that are NOT one of
+# the 13 hotspot wards above. Each `ward:` below is an MCD administrative
+# ward (imported separately, ALL-CAPS naming — see supabase/migrations
+# /20260731000000_delhi_ward_boundaries_import_support.sql), not a hotspot
+# ward, matched by exact or trivial-typo name equality only — never by
+# geographic guess. 18 other official Delhi stations verified live on
+# OpenAQ had no safely-matchable ward name and were deliberately left out
+# (see the expansion report's "needs manual review" table) rather than
+# guessed onto a nearby ward.
+  - ward: ALIPUR
+    openaq_location_id: 6932   # Alipur, Delhi - DPCC
+  - ward: ASHOK VIHAR
+    openaq_location_id: 8917   # Ashok Vihar, Delhi - DPCC
+  - ward: NAJAFGARH
+    openaq_location_id: 10488  # Najafgarh, Delhi - DPCC
+  - ward: SONIA VIHAR
+    openaq_location_id: 8475   # Sonia Vihar, Delhi - DPCC
+  - ward: AYA NAGAR
+    openaq_location_id: 5570   # Aya Nagar, New Delhi - IMD
+  - ward: PATPAR GANJ
+    openaq_location_id: 6960   # Patparganj, Delhi - DPCC (CSV spells it "Patparganj")
+  - ward: DILSHAD GARDEN
+    openaq_location_id: 6359   # IHBAS, Dilshad Garden, New Delhi - CPCB
