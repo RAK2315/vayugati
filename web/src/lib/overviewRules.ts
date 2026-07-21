@@ -46,24 +46,44 @@ export function confidenceAtPeak(forecast: WardForecastSummary | undefined): num
   return forecast.points.find((p) => p.horizon_ts === forecast.peakTs)?.confidence ?? null
 }
 
-export type HotspotStatus = 'severe' | 'watch' | 'stable' | 'no_data'
+export type HotspotStatus = 'severe' | 'watch' | 'stable' | 'stale' | 'no_data'
 
 export const HOTSPOT_STATUS_LABEL: Record<HotspotStatus, string> = {
   severe: 'Severe imminent',
   watch: 'Trending up',
   stable: 'Stable',
+  stale: 'Stale reading',
   no_data: 'No data',
 }
 
-/** Severe (crossing within the selected window) -> Watch (rising local
- *  excess, not yet crossing) -> Stable (a current reading exists) -> No
- *  data. A UI-only categorization built entirely from fields the page
- *  already has - not a new detection signal. */
+/** Same real-world threshold as ops.ts's STATION_STALE_MINUTES (kept as its
+ *  own literal here rather than importing across that module boundary for
+ *  one constant) - a ward whose current reading is older than this is not
+ *  "trending up" or "stable", it's stale, and that has to be the headline,
+ *  not a caveat next to an otherwise-normal-looking status. */
+export const HOTSPOT_READING_STALE_MINUTES = 180
+
+/** Severe (crossing within the selected window) -> Stale (current reading
+ *  older than the threshold - checked before watch/stable, since a rising-
+ *  looking trend built on a stale reading is misleading, not informative) ->
+ *  Watch (rising local excess, not yet crossing) -> Stable (a current
+ *  reading exists) -> No data. A UI-only categorization built entirely from
+ *  fields the page already has - not a new detection signal.
+ *
+ *  `readingAgeMinutes` is optional and defaults to "unknown/not stale" when
+ *  omitted, so every existing caller that doesn't pass it (Map's
+ *  SelectedWardPanel) keeps its exact prior behaviour - this is a strictly
+ *  additive change for callers that opt in. Severe is checked first and
+ *  deliberately NOT demoted by staleness: it reflects the forecast pipeline
+ *  crossing a threshold, not the live reading's own freshness. */
 export function hotspotStatus(
-  row: { hoursToSevere: number | null; peakExcess: number | null; aqi: number | null },
+  row: { hoursToSevere: number | null; peakExcess: number | null; aqi: number | null; readingAgeMinutes?: number | null },
   windowHours: TimeWindowHours,
 ): HotspotStatus {
   if (row.hoursToSevere != null && row.hoursToSevere <= windowHours) return 'severe'
+  if (row.aqi != null && row.readingAgeMinutes != null && row.readingAgeMinutes > HOTSPOT_READING_STALE_MINUTES) {
+    return 'stale'
+  }
   if (row.peakExcess != null && row.peakExcess > 0) return 'watch'
   if (row.aqi != null) return 'stable'
   return 'no_data'
@@ -101,6 +121,16 @@ export function bucketDispatchSla(dispatches: ActiveTaskDispatch[]): DispatchSla
 export interface SourceMixEntry {
   source: string
   count: number
+}
+
+/** A ward's `dominant_source` is only a meaningful signal when the ward
+ *  actually has a current reading - seeding can set a category before a
+ *  ward ever had a working station (Mayapuri: proxy-only, no official
+ *  station, still unresolved per docs/data/delhi-station-reconciliation.md),
+ *  and that stored category must never be shown as though it were a live,
+ *  evidence-backed source for a ward with no data at all. */
+export function isWardDataBacked(ward: { ts: string | null }): boolean {
+  return ward.ts != null
 }
 
 /** Pure client-side tally of wards[].dominant_source - no new fetch. */

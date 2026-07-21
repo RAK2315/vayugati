@@ -6,12 +6,17 @@ import {
   confidenceAtPeak,
   hotspotStatus,
   HOTSPOT_STATUS_LABEL,
+  isWardDataBacked,
   type HotspotStatus,
   type TimeWindowHours,
 } from '../../lib/overviewRules'
 import { Card, CardHeader } from '../ui'
 
 export type Pollutant = 'aqi' | 'pm25'
+
+function ageMinutes(ts: string | null): number | null {
+  return ts ? (Date.now() - new Date(ts).getTime()) / 60_000 : null
+}
 
 function timeAgo(ts: string | null): string {
   if (!ts) return '—'
@@ -23,6 +28,7 @@ const STATUS_TONE: Record<HotspotStatus, string> = {
   severe: 'text-status-critical ring-status-critical/40',
   watch: 'text-status-warning ring-status-warning/40',
   stable: 'text-status-success ring-status-success/40',
+  stale: 'text-status-warning ring-status-warning/40',
   no_data: 'text-slate-500 ring-slate-300',
 }
 
@@ -30,12 +36,14 @@ const STATUS_DOT: Record<HotspotStatus, string> = {
   severe: 'bg-status-critical',
   watch: 'bg-status-warning',
   stable: 'bg-status-success',
+  stale: 'bg-status-warning',
   no_data: 'bg-slate-400',
 }
 
-function StatusBadge({ status }: { status: HotspotStatus }) {
+function StatusBadge({ status, title }: { status: HotspotStatus; title?: string }) {
   return (
     <span
+      title={title}
       className={`inline-flex items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${STATUS_TONE[status]}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} aria-hidden />
@@ -95,11 +103,23 @@ export default function HotspotsRiskTable({
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               <th className="px-3 py-2 font-semibold">#</th>
               <th className="px-3 py-2 font-semibold">Ward</th>
-              <th className="px-3 py-2 font-semibold">Current</th>
-              <th className="px-3 py-2 font-semibold">Forecast Peak</th>
-              <th className="px-3 py-2 font-semibold">Local Excess</th>
+              <th className="px-3 py-2 font-semibold">
+                {pollutant === 'pm25' ? (
+                  <>
+                    Current PM2.5 <span className="normal-case">(µg/m³)</span>
+                  </>
+                ) : (
+                  'Current AQI'
+                )}
+              </th>
+              <th className="px-3 py-2 font-semibold">
+                Forecast PM2.5 Peak <span className="normal-case">(µg/m³)</span>
+              </th>
+              <th className="px-3 py-2 font-semibold">
+                Local Excess <span className="normal-case">(µg/m³)</span>
+              </th>
               <th className="px-3 py-2 font-semibold">Likely Source</th>
-              <th className="px-3 py-2 font-semibold">Confidence</th>
+              <th className="px-3 py-2 font-semibold">Forecast Confidence</th>
               <th className="px-3 py-2 font-semibold">Status</th>
               <th className="px-3 py-2 font-semibold">Age</th>
               <th className="w-8 px-2 py-2" />
@@ -108,10 +128,20 @@ export default function HotspotsRiskTable({
           <tbody className="divide-y divide-slate-100">
             {wards.map((ward, i) => {
               const forecast = forecasts.get(ward.id)
+              const dataBacked = isWardDataBacked(ward)
               const status = hotspotStatus(
-                { hoursToSevere: forecast?.hoursToSevere ?? null, peakExcess: forecast?.peakExcess ?? null, aqi: ward.aqi },
+                {
+                  hoursToSevere: forecast?.hoursToSevere ?? null,
+                  peakExcess: forecast?.peakExcess ?? null,
+                  aqi: ward.aqi,
+                  readingAgeMinutes: ageMinutes(ward.ts),
+                },
                 windowHours,
               )
+              // What the status would read without the staleness check - shown
+              // as a secondary note on a stale badge rather than silently lost,
+              // per the "keep the trend, but stale-qualified" requirement.
+              const underlyingTrend = forecast?.peakExcess != null && forecast.peakExcess > 0 ? 'was trending up' : null
               const confidence = confidenceAtPeak(forecast)
               const selected = ward.id === selectedWardId
               return (
@@ -133,12 +163,23 @@ export default function HotspotsRiskTable({
                         ? `${forecast.peakExcess > 0 ? '+' : ''}${Math.round(forecast.peakExcess)}`
                         : '—'}
                     </td>
-                    <td className="px-3 py-2 text-slate-600">{ward.dominant_source ?? 'Unknown'}</td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {dataBacked ? (
+                        (ward.dominant_source ?? 'Unknown')
+                      ) : (
+                        <span className="text-slate-400" title="No station-backed data for this ward - a source cannot be assessed">
+                          Not assessed
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 tabular-nums text-slate-600">
                       {confidence != null ? `${Math.round(confidence * 100)}%` : '—'}
                     </td>
                     <td className="px-3 py-2">
-                      <StatusBadge status={status} />
+                      <StatusBadge
+                        status={status}
+                        title={status === 'stale' ? `Last fresh reading ${timeAgo(ward.ts)} ago${underlyingTrend ? ` - ${underlyingTrend}` : ''}` : undefined}
+                      />
                     </td>
                     <td className="px-3 py-2 tabular-nums text-slate-500">{timeAgo(ward.ts)}</td>
                     <td className="px-2 py-2 text-slate-300">
@@ -172,11 +213,19 @@ export default function HotspotsRiskTable({
         </table>
       </div>
       {wards.length === 0 && <p className="px-4 py-6 text-center text-sm text-slate-400">No ward data available.</p>}
-      <p className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400">
-        {pollutant === 'aqi'
-          ? 'Current reading is colour-coded on the India NAQI scale.'
-          : 'PM2.5 shown in µg/m³ — colour bands apply to the AQI view only.'}
-      </p>
+      <div className="space-y-1 border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400">
+        <p>
+          {pollutant === 'aqi'
+            ? 'Current reading is colour-coded on the India NAQI scale.'
+            : 'PM2.5 shown in µg/m³ — colour bands apply to the AQI view only.'}{' '}
+          Forecast Peak and Local Excess are always PM2.5, independent of the Current column's toggle.
+        </p>
+        <p>
+          Likely Source is a preliminary citywide signal, not confirmed evidence - source confidence is only refined
+          per-incident with citizen, field, or authority evidence in the Incidents workspace. Forecast Confidence
+          reflects the forecast model's own reliability at its predicted peak, not confidence in the likely source.
+        </p>
+      </div>
     </Card>
   )
 }

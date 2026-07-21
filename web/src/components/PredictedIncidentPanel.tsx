@@ -11,10 +11,10 @@ import {
   describeTriggeredRule,
   forecastFallbackStatus,
   isHorizonValidated,
+  resolveIncidentPollutant,
   sensorQualityCaveat,
   type ForecastDataQualityStatus,
   type ForecastMethod,
-  type Pollutant,
   type PredictionMethod,
 } from '../lib/incidentRules'
 import {
@@ -77,16 +77,25 @@ function ForecastCurveChart({
     : null
 
   const peak = data.reduce((a, b) => (b.predicted_value > a.predicted_value ? b : a), data[0])
+  const horizonHours = Math.round(
+    (new Date(data[data.length - 1].horizon_ts).getTime() - new Date(data[0].horizon_ts).getTime()) / 3_600_000,
+  )
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Forecast curve">
-      {band && <path d={band} fill="#7c3aed" fillOpacity={0.12} />}
-      <path d={line} fill="none" stroke="#7c3aed" strokeWidth={1.5} />
-      <circle cx={x(data.indexOf(peak))} cy={y(peak.predicted_value)} r={2.5} fill="#7c3aed" />
-      <text x={x(data.indexOf(peak))} y={y(peak.predicted_value) - 5} fontSize={8} textAnchor="middle" fill="#5b21b6">
-        peak {peak.predicted_value.toFixed(0)}
-      </text>
-    </svg>
+    <div>
+      <div className="mb-1 flex items-center justify-between text-[10px] text-slate-400">
+        <span>Next {horizonHours}h</span>
+        <span>µg/m³{hasBand ? ' · shaded band = uncertainty range' : ''}</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Forecast curve">
+        {band && <path d={band} fill="#7c3aed" fillOpacity={0.12} />}
+        <path d={line} fill="none" stroke="#7c3aed" strokeWidth={1.5} />
+        <circle cx={x(data.indexOf(peak))} cy={y(peak.predicted_value)} r={2.5} fill="#7c3aed" />
+        <text x={x(data.indexOf(peak))} y={y(peak.predicted_value) - 5} fontSize={8} textAnchor="middle" fill="#5b21b6">
+          peak {peak.predicted_value.toFixed(0)} µg/m³
+        </text>
+      </svg>
+    </div>
   )
 }
 
@@ -101,7 +110,7 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
   })
 
   const latest = anomalyCandidates[0] ?? null
-  const pollutant = (incident.primary_pollutant ?? latest?.pollutant ?? null) as Pollutant | null
+  const pollutant = resolveIncidentPollutant(incident.primary_pollutant, latest?.pollutant ?? null)
 
   const forecastRun = useAsync(
     () => fetchLatestForecastRun(incident.ward_id as number, pollutant as string),
@@ -218,6 +227,14 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
         )}
       </dl>
 
+      {latest?.prediction_method === 'validated_forecast' && run && run.method !== 'lightgbm' && (
+        <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-500">
+          This incident was detected using a validated forecast at the time of detection. The Forecast card below
+          shows the most recent forecast cycle, which now uses the baseline model instead - forecasts are
+          revalidated every cycle and can change; this is not a contradiction.
+        </p>
+      )}
+
       {triggeredRules.length > 0 && (
         <div className="mt-2">
           <p className="text-[11px] font-semibold text-slate-600">Triggered detection rules</p>
@@ -266,7 +283,10 @@ export default function PredictedIncidentPanel({ detail, onRefresh }: { detail: 
 
           {run.validation_metrics && Object.keys(run.validation_metrics as object).length > 0 && (
             <div className="mt-2">
-              <p className="text-[11px] font-semibold text-slate-600">Model accuracy by horizon (MAE vs. best baseline)</p>
+              <p className="text-[11px] font-semibold text-slate-600">Forecast error by horizon</p>
+              <p className="text-[10px] text-slate-400">
+                Compared against the strongest available simple baseline where validation data exists.
+              </p>
               <div className="mt-1 flex flex-wrap gap-2">
                 {Object.entries(
                   run.validation_metrics as Record<

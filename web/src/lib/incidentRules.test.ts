@@ -78,6 +78,13 @@ import {
   SLA_CHECKPOINT_LABEL,
   TASK_DISPATCH_STATUS_LABEL,
   taskDispatchRequiresReason,
+  cleanMissionRationale,
+  collapseRepeatedTimelineEvents,
+  dispatchEmptyStateMessage,
+  groupDuplicateMissions,
+  missionRationaleIsAutomated,
+  parseDataQualityNote,
+  resolveIncidentPollutant,
 } from './incidentRules'
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
@@ -1142,5 +1149,160 @@ describe('minutesUntil / slaCountdownLabel', () => {
 
   it('formats sub-hour durations in minutes only', () => {
     expect(slaCountdownLabel('2026-07-18T12:45:00Z', now)).toMatch(/due in 45m/i)
+  })
+})
+
+// ── launch-hardening pass (Overview/Incidents clarity) ──────────────────────
+
+describe('resolveIncidentPollutant', () => {
+  it('prefers primary_pollutant when set', () => {
+    expect(resolveIncidentPollutant('pm10', 'pm25')).toBe('pm10')
+  })
+
+  it('falls back to the detection pollutant when primary is null', () => {
+    expect(resolveIncidentPollutant(null, 'no2')).toBe('no2')
+  })
+
+  it('returns null when neither is set', () => {
+    expect(resolveIncidentPollutant(null, null)).toBeNull()
+  })
+
+  it('returns null for an unrecognized pollutant string rather than passing it through', () => {
+    expect(resolveIncidentPollutant('not_a_real_pollutant', null)).toBeNull()
+  })
+})
+
+describe('missionRationaleIsAutomated / cleanMissionRationale', () => {
+  it('detects a single-prefixed automated rationale', () => {
+    const r = 'Automated attribution: leading hypothesis is road dust at 50% confidence.'
+    expect(missionRationaleIsAutomated(r)).toBe(true)
+    expect(cleanMissionRationale(r)).toBe('leading hypothesis is road dust at 50% confidence.')
+  })
+
+  it('strips a double-prefixed rationale (the known SQL double-prepend bug) down to one clean sentence', () => {
+    const r = 'Automated attribution: Automated attribution: leading hypothesis is road dust at 50% confidence.'
+    expect(cleanMissionRationale(r)).toBe('leading hypothesis is road dust at 50% confidence.')
+  })
+
+  it('leaves a manually created (non-automated) rationale untouched', () => {
+    const r = 'Command requested a follow-up photo.'
+    expect(missionRationaleIsAutomated(r)).toBe(false)
+    expect(cleanMissionRationale(r)).toBe(r)
+  })
+
+  it('handles null without crashing', () => {
+    expect(missionRationaleIsAutomated(null)).toBe(false)
+    expect(cleanMissionRationale(null)).toBeNull()
+  })
+})
+
+describe('groupDuplicateMissions', () => {
+  it('groups missions with identical type+status+rationale and counts them', () => {
+    const missions = [
+      { id: 1, mission_type: 'citizen_verification', status: 'proposed', rationale: 'Same reason' },
+      { id: 2, mission_type: 'citizen_verification', status: 'proposed', rationale: 'Same reason' },
+      { id: 3, mission_type: 'field_photo', status: 'proposed', rationale: 'Different mission' },
+    ]
+    const grouped = groupDuplicateMissions(missions)
+    expect(grouped).toHaveLength(2)
+    expect(grouped[0]).toEqual({ mission: missions[0], count: 2 })
+    expect(grouped[1]).toEqual({ mission: missions[2], count: 1 })
+  })
+
+  it('does not group missions with different rationale even if type+status match', () => {
+    const missions = [
+      { id: 1, mission_type: 'field_photo', status: 'proposed', rationale: 'Reason A' },
+      { id: 2, mission_type: 'field_photo', status: 'proposed', rationale: 'Reason B' },
+    ]
+    expect(groupDuplicateMissions(missions)).toHaveLength(2)
+  })
+
+  it('handles an empty array', () => {
+    expect(groupDuplicateMissions([])).toEqual([])
+  })
+})
+
+describe('dispatchEmptyStateMessage', () => {
+  it('names the source-corroboration blocker for a suspected-only source', () => {
+    expect(dispatchEmptyStateMessage('suspected', true)).toMatch(/corroborated/i)
+  })
+
+  it('names the missing-authority blocker when confidence is sufficient but no authority resolved', () => {
+    const msg = dispatchEmptyStateMessage('corroborated', false)
+    expect(msg).toMatch(/no responsible authority/i)
+  })
+
+  it('gives a generic-but-honest message when neither blocker applies', () => {
+    const msg = dispatchEmptyStateMessage('officially_verified', true)
+    expect(msg).not.toMatch(/corroborated/i)
+    expect(msg).not.toMatch(/no responsible authority/i)
+    expect(msg).toMatch(/no dispatch created yet/i)
+  })
+})
+
+describe('parseDataQualityNote', () => {
+  it('parses the fixed-shape SQL sentence into available/missing lists', () => {
+    const note =
+      'Evidence availability for this calculation: monitoring readings t, wind direction t, responsibility registry t, citizen evidence f, field evidence f (3 of 5 evidence types available).'
+    const parsed = parseDataQualityNote(note)
+    expect(parsed).not.toBeNull()
+    expect(parsed?.available).toEqual(['monitoring readings', 'wind direction', 'responsibility registry'])
+    expect(parsed?.missing).toEqual(['citizen evidence', 'field evidence'])
+  })
+
+  it('never leaks a raw t/f shorthand into the parsed output', () => {
+    const note =
+      'Evidence availability for this calculation: monitoring readings f, wind direction f, responsibility registry f, citizen evidence f, field evidence f (0 of 5 evidence types available).'
+    const parsed = parseDataQualityNote(note)
+    const joined = JSON.stringify(parsed)
+    expect(joined).not.toMatch(/[^a-z]t[^a-z]|[^a-z]f[^a-z]/)
+  })
+
+  it('returns null (caller falls back to raw text) for null input or an unrecognized shape', () => {
+    expect(parseDataQualityNote(null)).toBeNull()
+    expect(parseDataQualityNote('some unrelated free text note')).toBeNull()
+  })
+})
+
+describe('collapseRepeatedTimelineEvents', () => {
+  it('collapses repeated attribution_recalculated events into one entry with a count, at the first occurrence position', () => {
+    const events = [
+      { id: 1, event_type: 'created' },
+      { id: 2, event_type: 'attribution_recalculated' },
+      { id: 3, event_type: 'evidence_added' },
+      { id: 4, event_type: 'attribution_recalculated' },
+      { id: 5, event_type: 'attribution_recalculated' },
+    ]
+    const out = collapseRepeatedTimelineEvents(events)
+    expect(out).toHaveLength(3)
+    expect(out[0]).toEqual({ representative: events[0], count: 1 })
+    expect(out[1]).toEqual({ representative: events[4], count: 3 }) // latest occurrence, full count
+    expect(out[2]).toEqual({ representative: events[2], count: 1 })
+  })
+
+  it('leaves every other event type completely untouched, one entry each', () => {
+    const events = [
+      { id: 1, event_type: 'created' },
+      { id: 2, event_type: 'evidence_added' },
+      { id: 3, event_type: 'hypothesis_updated' },
+    ]
+    expect(collapseRepeatedTimelineEvents(events)).toEqual(events.map((e) => ({ representative: e, count: 1 })))
+  })
+
+  it('handles an empty array', () => {
+    expect(collapseRepeatedTimelineEvents([])).toEqual([])
+  })
+
+  it('collapses predicted_incident_reviewed independently from attribution_recalculated - two separate groups', () => {
+    const events = [
+      { id: 1, event_type: 'predicted_incident_reviewed' },
+      { id: 2, event_type: 'attribution_recalculated' },
+      { id: 3, event_type: 'predicted_incident_reviewed' },
+      { id: 4, event_type: 'attribution_recalculated' },
+    ]
+    const out = collapseRepeatedTimelineEvents(events)
+    expect(out).toHaveLength(2)
+    expect(out[0]).toEqual({ representative: events[2], count: 2 })
+    expect(out[1]).toEqual({ representative: events[3], count: 2 })
   })
 })

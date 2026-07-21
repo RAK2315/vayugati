@@ -24,6 +24,10 @@ export const HOTSPOT_STATUS_HEX: Record<HotspotStatus, string> = {
   severe: status.critical,
   watch: status.warning,
   stable: status.success,
+  // Map never passes hotspotStatus() the new optional readingAgeMinutes
+  // input (see overviewRules.ts), so this status never actually occurs
+  // here - present only so this Record stays exhaustive against the type.
+  stale: status.neutral,
   no_data: status.neutral,
 }
 

@@ -55,7 +55,12 @@ export default function IncidentDetailPanel({
 
   return (
     <>
-      <IncidentStatusHeader incident={detail.data.incident} wardAqi={wardAqi} onBack={onBack} />
+      <IncidentStatusHeader
+        incident={detail.data.incident}
+        wardAqi={wardAqi}
+        detectionPollutant={detail.data.anomalyCandidates[0]?.pollutant ?? null}
+        onBack={onBack}
+      />
       <IncidentActionBar incident={detail.data.incident} onRefresh={onRefresh} />
       <Tabs tabs={DETAIL_TABS} active={activeTab} onChange={onTabChange} />
       <div className="min-h-0 flex-1 overflow-y-auto">

@@ -1,5 +1,5 @@
 import { Inbox } from 'lucide-react'
-import { haversineMeters } from '../lib/incidentRules'
+import { cleanMissionRationale, groupDuplicateMissions, haversineMeters, missionRationaleIsAutomated } from '../lib/incidentRules'
 import type { IncidentDetail } from '../lib/incidents'
 import EmptyIncidentState from './incidents/EmptyIncidentState'
 import EvidenceSummaryCard from './EvidenceSummaryCard'
@@ -188,10 +188,13 @@ export default function IncidentEvidencePanel({ detail }: { detail: IncidentDeta
           <p className="text-xs text-slate-500">No evidence missions requested.</p>
         ) : (
           <ul className="space-y-1.5">
-            {missions.map((m) => (
+            {groupDuplicateMissions(missions).map(({ mission: m, count }) => (
               <li key={m.id} className="rounded-lg bg-slate-50 p-2 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold capitalize text-slate-800">{m.mission_type.replace(/_/g, ' ')}</span>
+                  <span className="font-semibold capitalize text-slate-800">
+                    {m.mission_type.replace(/_/g, ' ')}
+                    {count > 1 && <span className="ml-1 font-normal normal-case text-slate-400">× {count}</span>}
+                  </span>
                   <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600">
                     {m.status}
                   </span>
@@ -209,7 +212,16 @@ export default function IncidentEvidencePanel({ detail }: { detail: IncidentDeta
                     </span>
                   )}
                 </div>
-                {m.rationale && <p className="mt-0.5 text-slate-500">{m.rationale}</p>}
+                {m.rationale && (
+                  <p className="mt-0.5 text-slate-500">
+                    {missionRationaleIsAutomated(m.rationale) && (
+                      <span className="mr-1 rounded bg-accent-100 px-1 text-[10px] font-bold uppercase text-accent-700">
+                        Automated attribution
+                      </span>
+                    )}
+                    {cleanMissionRationale(m.rationale)}
+                  </p>
+                )}
                 {m.proof_photo_url && (
                   <a
                     href={m.proof_photo_url}

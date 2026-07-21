@@ -124,8 +124,8 @@ export default function EvidenceMissionDialog({
         // Honest dead-end: a real operational state (no officer covers this
         // ward), not an empty dropdown to shrug at.
         <p className="mt-1 rounded-lg bg-status-warning/10 px-2.5 py-2 text-xs text-slate-600">
-          No field officer is assigned to this ward, so this mission cannot be dispatched. Assign an officer to the
-          ward first (roles are set in SQL today - see README).
+          No field officer is assigned to this ward, so this mission cannot be dispatched. Ask an admin to assign a
+          field officer to this ward before dispatching.
         </p>
       ) : (
         <select

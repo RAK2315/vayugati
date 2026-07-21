@@ -1,6 +1,6 @@
 import { Activity } from 'lucide-react'
 import type { ForecastAccuracySummary, GatiMetrics } from '../../lib/data'
-import { modelSelectionExplainer } from '../../lib/forecastTrustRules'
+import { forecastEngineStatusLine, modelSelectionExplainer } from '../../lib/forecastTrustRules'
 import type { DispatchSlaBuckets } from '../../lib/overviewRules'
 import { Card, CardHeader, Stat } from '../ui'
 
@@ -54,7 +54,21 @@ export default function OperationalSummaryPanel({
           </div>
         </div>
 
-        <p className="text-sm text-slate-600">{modelSelectionExplainer(accuracy.methodMix)}</p>
+        <div>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Forecast trust</p>
+          <p className="text-sm text-slate-600">{forecastEngineStatusLine(accuracy.coverage)}</p>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            <Stat value={`${accuracy.coverage.freshCount}/${accuracy.coverage.totalPairs}`} label="Forecast coverage" />
+            <Stat value={accuracy.methodMix.lightgbmCount} label="ML selected" />
+            <Stat value={accuracy.methodMix.diurnalPersistenceCount} label="Baseline fallback" />
+          </div>
+          <p className="mt-2 text-sm text-slate-600">{modelSelectionExplainer(accuracy.methodMix)}</p>
+          {accuracy.coverage.latestGeneratedAt && (
+            <p className="mt-1 text-[11px] text-slate-400">
+              Latest forecast cycle: {new Date(accuracy.coverage.latestGeneratedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+            </p>
+          )}
+        </div>
       </div>
     </Card>
   )

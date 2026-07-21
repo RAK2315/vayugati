@@ -84,16 +84,16 @@ export default function IncidentListItem({
               className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-400 ring-1 ring-inset ring-slate-200"
               title="No forecast for this ward, so severity could not be derived"
             >
-              No severity
+              Severity unavailable
             </span>
           )}
           {escalated && (
             <span
               className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase text-status-critical ring-1 ring-inset ring-status-critical/40"
-              title={`Open longer than ${ESCALATION_SLA_HOURS}h with nothing dispatched`}
+              title={`Escalated by rule: open longer than ${ESCALATION_SLA_HOURS}h with nothing dispatched - independent of severity`}
             >
               <AlertTriangle className="h-2.5 w-2.5" strokeWidth={2.5} aria-hidden />
-              Escalated
+              Escalated by rule
             </span>
           )}
           <span className="ml-auto text-[11px] tabular-nums text-slate-400">{fmtAge(incident.detected_at)}</span>

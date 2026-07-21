@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
 import {
+  cleanMissionRationale,
   CLASSIFICATION_LABEL,
   HYPOTHESIS_REVIEW_STATUS_LABEL,
-  PROBABLE_SOURCE_DISCLAIMER,
   isHumanConfirmedClassification,
   needsMoreAttributionEvidence,
+  parseDataQualityNote,
+  PROBABLE_SOURCE_DISCLAIMER,
   sourceCategoryLabel,
   type HypothesisReviewStatus,
 } from '../lib/incidentRules'
@@ -46,19 +48,37 @@ function HypothesisCard({
   const missing = Array.isArray(h.missing_evidence) ? (h.missing_evidence as string[]) : []
   const reviewStatus = (h.review_status ?? 'pending') as HypothesisReviewStatus
   const isVerified = h.confidence_level === 'officially_verified'
+  // The attribution engine stores 'unresolved' with probability=1.0 - it's
+  // 100% CERTAIN the source is unresolved, not "100% confident in a source".
+  // Rendered as a percentage/progress-bar that reads exactly backwards, so
+  // this gets its own honest copy instead of the generic pct()/bar treatment.
+  const isUnresolved = h.source_category === 'unresolved'
 
   return (
     <li className="rounded-lg bg-slate-50 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-semibold capitalize text-slate-800">{sourceCategoryLabel(h.source_category)}</span>
-        <span className="tabular-nums text-sm font-semibold text-slate-800">{pct(h.probability)}</span>
+        {!isUnresolved && <span className="tabular-nums text-sm font-semibold text-slate-800">{pct(h.probability)}</span>}
       </div>
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full rounded-full bg-accent-500" style={{ width: pct(h.probability) }} />
-      </div>
+      {isUnresolved ? (
+        <p className="mt-1 text-xs text-slate-500">
+          Insufficient independent evidence - no source category has enough evidence to be assessed as more likely
+          than others.
+        </p>
+      ) : (
+        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full rounded-full bg-accent-500" style={{ width: pct(h.probability) }} />
+        </div>
+      )}
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-400">
         <span className="font-semibold uppercase tracking-wide">
-          {h.confidence_level === 'officially_verified' ? 'Officially verified' : h.confidence_level === 'corroborated' ? 'Corroborated' : 'Suspected'}
+          {isUnresolved
+            ? 'Insufficient evidence'
+            : h.confidence_level === 'officially_verified'
+              ? 'Officially verified'
+              : h.confidence_level === 'corroborated'
+                ? 'Corroborated'
+                : 'Suspected'}
         </span>
         {reviewStatus !== 'pending' && <span>· {HYPOTHESIS_REVIEW_STATUS_LABEL[reviewStatus]}</span>}
         {h.model_version && <span>· {h.model_version}</span>}
@@ -151,7 +171,14 @@ export default function SourceAttributionPanel({ detail, onRefresh }: { detail: 
   if (unavailable.includes('Source hypotheses')) return null
   if (current.length === 0) return null
 
-  const needsEvidence = needsMoreAttributionEvidence(top?.probability ?? null, second?.probability ?? null)
+  // top?.probability is 1.0 for an 'unresolved' hypothesis (the engine is
+  // certain it's unresolved, not confident in a source) - the probability-
+  // threshold check alone would read that as "confident enough", which is
+  // backwards for exactly the case that most needs an evidence
+  // recommendation. Checked explicitly here rather than inside
+  // needsMoreAttributionEvidence, which has no other reason to know about
+  // this one category's special meaning.
+  const needsEvidence = top?.source_category === 'unresolved' || needsMoreAttributionEvidence(top?.probability ?? null, second?.probability ?? null)
 
   const act = async (fn: () => Promise<void>) => {
     if (!session) return
@@ -227,12 +254,33 @@ export default function SourceAttributionPanel({ detail, onRefresh }: { detail: 
         </div>
       </dl>
 
-      {dataQualityWarning && (
-        <div className="mb-2 flex items-start gap-2 rounded-lg bg-status-warning/10 px-2.5 py-1.5">
-          <UnavailableBadge label="Data-quality note" />
-          <p className="text-[11px] text-slate-600">{dataQualityWarning}</p>
-        </div>
-      )}
+      {dataQualityWarning &&
+        (() => {
+          const parsed = parseDataQualityNote(dataQualityWarning)
+          return (
+            <div className="mb-2 flex items-start gap-2 rounded-lg bg-status-warning/10 px-2.5 py-1.5">
+              <UnavailableBadge label="Data-quality note" />
+              {parsed ? (
+                <div className="text-[11px] text-slate-600">
+                  {parsed.available.length > 0 && (
+                    <p>
+                      <span className="font-semibold">Available:</span> {parsed.available.join(', ')}
+                    </p>
+                  )}
+                  {parsed.missing.length > 0 && (
+                    <p>
+                      <span className="font-semibold">Missing:</span> {parsed.missing.join(', ')}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                // Fallback for a note shape this parser doesn't recognize -
+                // never hide the raw text, just don't fail to show it.
+                <p className="text-[11px] text-slate-600">{dataQualityWarning}</p>
+              )}
+            </div>
+          )
+        })()}
 
       <ul className="space-y-2">
         {ranked.map((h) => (
@@ -245,7 +293,7 @@ export default function SourceAttributionPanel({ detail, onRefresh }: { detail: 
           <span className="font-semibold">Recommended next evidence:</span>{' '}
           {recommendedMission ? (
             <>
-              {recommendedMission.mission_type.replace(/_/g, ' ')} - {recommendedMission.rationale?.replace('Automated attribution: ', '')}. Use
+              {recommendedMission.mission_type.replace(/_/g, ' ')} - {cleanMissionRationale(recommendedMission.rationale)?.replace(/\.$/, '')}. Use
               "Request evidence" above to dispatch it.
             </>
           ) : (

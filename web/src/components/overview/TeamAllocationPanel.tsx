@@ -21,28 +21,32 @@ export default function TeamAllocationPanel({
         title={
           <span className="flex items-center gap-1.5">
             <Users className="h-4 w-4 text-accent-600" aria-hidden />
-            Team Allocation
+            Field Team Allocation
           </span>
         }
+        subtitle="Suggested crew split by predicted local excess - not a dispatch, just a planning guide"
         right={
-          <div className="flex items-center gap-1 rounded-lg border border-slate-200 px-1 py-1">
-            <button
-              type="button"
-              onClick={() => onTeamsChange(Math.max(1, teams - 1))}
-              aria-label="Fewer teams"
-              className="focus-ring rounded p-1 text-slate-500 hover:bg-slate-100"
-            >
-              <Minus className="h-3.5 w-3.5" aria-hidden />
-            </button>
-            <span className="w-6 text-center text-sm font-semibold tabular-nums text-slate-800">{teams}</span>
-            <button
-              type="button"
-              onClick={() => onTeamsChange(teams + 1)}
-              aria-label="More teams"
-              className="focus-ring rounded p-1 text-slate-500 hover:bg-slate-100"
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-            </button>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-slate-400">Teams available</span>
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 px-1 py-1">
+              <button
+                type="button"
+                onClick={() => onTeamsChange(Math.max(1, teams - 1))}
+                aria-label="Fewer teams"
+                className="focus-ring rounded p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <Minus className="h-3.5 w-3.5" aria-hidden />
+              </button>
+              <span className="w-6 text-center text-sm font-semibold tabular-nums text-slate-800">{teams}</span>
+              <button
+                type="button"
+                onClick={() => onTeamsChange(teams + 1)}
+                aria-label="More teams"
+                className="focus-ring rounded p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
           </div>
         }
       />
@@ -57,7 +61,7 @@ export default function TeamAllocationPanel({
             >
               <span className="font-medium text-slate-700">{a.wardName}</span>
               <span className="rounded bg-accent-100 px-1.5 py-0.5 font-bold tabular-nums text-accent-700">
-                {a.teams}
+                {a.teams} team{a.teams === 1 ? '' : 's'}
               </span>
             </li>
           ))}

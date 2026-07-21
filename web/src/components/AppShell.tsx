@@ -141,13 +141,16 @@ function TopBar({ subtitle }: { subtitle?: string }) {
         {subtitle && <span className="hidden truncate text-xs font-medium text-slate-400 sm:inline">{subtitle}</span>}
       </div>
 
-      {/* global search - visual placeholder, not wired yet */}
-      <div className="mx-auto hidden max-w-md flex-1 sm:block">
+      {/* global search - visual placeholder, not wired yet. Deliberately
+          narrower and lower-contrast than a live control (max-w-xs, not
+          max-w-md) so it reads as a disabled affordance, not a broken
+          central feature - see docs/data/overview-incidents-launch-ui-fix-report.md. */}
+      <div className="mx-auto hidden max-w-xs flex-1 sm:block">
         <input
           type="search"
           disabled
-          placeholder="Search incidents, reports, wards… (coming soon)"
-          title="Global search arrives with the incident queue in Phase 3"
+          placeholder="Search disabled in pilot build"
+          title="Search will be enabled after pilot data review"
           className="focus-ring w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-400 placeholder:text-slate-400"
         />
       </div>

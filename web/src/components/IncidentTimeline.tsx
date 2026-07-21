@@ -1,3 +1,4 @@
+import { collapseRepeatedTimelineEvents } from '../lib/incidentRules'
 import type { IncidentEventRow } from '../lib/incidents'
 import { EmptyState } from './ui'
 
@@ -12,6 +13,8 @@ const EVENT_STYLE: Record<string, { dot: string; label: string }> = {
   created: { dot: 'bg-status-info', label: 'Detected' },
   evidence_added: { dot: 'bg-brand-500', label: 'Evidence' },
   hypothesis_updated: { dot: 'bg-brand-500', label: 'Assessment' },
+  attribution_recalculated: { dot: 'bg-brand-500', label: 'Attribution recalculated' },
+  predicted_incident_reviewed: { dot: 'bg-brand-500', label: 'Reviewed' },
   mission_dispatched: { dot: 'bg-status-warning', label: 'Evidence mission' },
   routed: { dot: 'bg-status-warning', label: 'Routed' },
   task_created: { dot: 'bg-status-warning', label: 'Task' },
@@ -55,11 +58,13 @@ export default function IncidentTimeline({
 }) {
   if (!events.length) return <EmptyState icon="🕓">{emptyMessage}</EmptyState>
 
+  const displayed = collapseRepeatedTimelineEvents(events)
+
   return (
     <ol className="space-y-0">
-      {events.map((e, i) => {
+      {displayed.map(({ representative: e, count }, i) => {
         const style = EVENT_STYLE[e.event_type] ?? { dot: 'bg-ink-300', label: e.event_type.replace(/_/g, ' ') }
-        const last = i === events.length - 1
+        const last = i === displayed.length - 1
         return (
           <li key={e.id} className="relative flex gap-3 pl-1">
             <div className="flex flex-col items-center">
@@ -68,8 +73,11 @@ export default function IncidentTimeline({
             </div>
             <div className={`min-w-0 flex-1 ${last ? 'pb-1' : 'pb-4'}`}>
               <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="text-xs font-semibold text-ink-700">{style.label}</span>
-                <span className="text-[11px] text-ink-400">{fmt(e.ts)}</span>
+                <span className="text-xs font-semibold text-ink-700">
+                  {style.label}
+                  {count > 1 && ` × ${count}`}
+                </span>
+                <span className="text-[11px] text-ink-400">{count > 1 ? `Latest: ${fmt(e.ts)}` : fmt(e.ts)}</span>
                 {showVisibility && !e.is_public && (
                   <span
                     className="rounded bg-ink-100 px-1 text-[10px] font-bold uppercase tracking-wide text-ink-500"

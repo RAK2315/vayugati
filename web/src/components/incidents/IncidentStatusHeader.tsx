@@ -1,5 +1,5 @@
 import { ChevronLeft } from 'lucide-react'
-import { allowedTaskKinds, CONFIDENCE_LABEL, currentReading, type Severity } from '../../lib/incidentRules'
+import { allowedTaskKinds, CONFIDENCE_LABEL, currentReading, POLLUTANT_LABEL, resolveIncidentPollutant, type Severity } from '../../lib/incidentRules'
 import type { Incident } from '../../lib/incidents'
 
 const SEVERITY_TONE: Record<Severity, string> = {
@@ -31,15 +31,22 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 export default function IncidentStatusHeader({
   incident,
   wardAqi,
+  detectionPollutant,
   onBack,
 }: {
   incident: Incident
   wardAqi: number | null
+  /** The pollutant that triggered automated detection, if this incident came
+   *  from one - same fallback PredictedIncidentPanel.tsx uses via
+   *  resolveIncidentPollutant, so this header can never show a different
+   *  pollutant than the Forecast card below it for the same incident. */
+  detectionPollutant?: string | null
   onBack?: () => void
 }) {
   const severity = (incident.severity ?? null) as Severity | null
   const kinds = allowedTaskKinds(incident.source_confidence)
   const reading = currentReading(wardAqi, incident.local_excess)
+  const pollutant = resolveIncidentPollutant(incident.primary_pollutant, detectionPollutant ?? null)
 
   return (
     <div className="flex-shrink-0 border-b border-slate-200 bg-white px-4 py-3">
@@ -76,7 +83,11 @@ export default function IncidentStatusHeader({
           )}
         </Fact>
         <Fact label="Pollutant">
-          <span className="uppercase">{incident.primary_pollutant ?? '-'}</span>
+          {pollutant ? (
+            <span>{POLLUTANT_LABEL[pollutant]}</span>
+          ) : (
+            <span className="font-normal text-slate-400">-</span>
+          )}
         </Fact>
         <Fact label="Current reading">
           {reading.kind === 'live' ? (

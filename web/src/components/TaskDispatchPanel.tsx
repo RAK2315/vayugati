@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { Truck } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import {
+  dispatchEmptyStateMessage,
   NOTIFICATION_CHANNEL_LABEL,
   NOTIFICATION_STATUS_LABEL,
   ROUTING_CONFIDENCE_LABEL,
@@ -24,6 +26,7 @@ import {
   type TaskDispatchRow,
   type TaskRoutingPreview,
 } from '../lib/incidents'
+import EmptyIncidentState from './incidents/EmptyIncidentState'
 import { Label, UnavailableBadge } from './ui'
 
 /**
@@ -308,7 +311,7 @@ function DispatchRow({
 
 export default function TaskDispatchPanel({ detail, onRefresh }: { detail: IncidentDetail; onRefresh: () => void }) {
   const { session } = useAuth()
-  const { incident, interventions, unavailable } = detail
+  const { incident, interventions, responsibleAuthority, unavailable } = detail
   const [dispatches, setDispatches] = useState<Record<number, TaskDispatchRow | null>>({})
   const [escalating, setEscalating] = useState(false)
 
@@ -328,8 +331,20 @@ export default function TaskDispatchPanel({ detail, onRefresh }: { detail: Incid
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interventions.length, incident.id])
 
-  if (unavailable.includes('Interventions')) return null
-  if (interventions.length === 0) return null
+  if (unavailable.includes('Interventions')) {
+    return (
+      <EmptyIncidentState icon={Truck} title="Dispatch data unavailable">
+        Interventions for this incident could not be loaded - try refreshing the incident.
+      </EmptyIncidentState>
+    )
+  }
+  if (interventions.length === 0) {
+    return (
+      <EmptyIncidentState icon={Truck} title="No dispatch yet">
+        {dispatchEmptyStateMessage(incident.source_confidence, responsibleAuthority != null)}
+      </EmptyIncidentState>
+    )
+  }
 
   const runEscalation = async () => {
     setEscalating(true)

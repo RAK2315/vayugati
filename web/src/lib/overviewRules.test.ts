@@ -4,6 +4,8 @@ import {
   bucketDispatchSla,
   confidenceAtPeak,
   hotspotStatus,
+  HOTSPOT_READING_STALE_MINUTES,
+  isWardDataBacked,
   nextDueAt,
   recurringWardsSummary,
   rollupStationHealth,
@@ -109,6 +111,36 @@ describe('hotspotStatus', () => {
 
   it('is no_data when nothing is known', () => {
     expect(hotspotStatus({ hoursToSevere: null, peakExcess: null, aqi: null }, 36)).toBe('no_data')
+  })
+
+  it('is stale when the reading is older than HOTSPOT_READING_STALE_MINUTES, even with a rising excess', () => {
+    expect(
+      hotspotStatus({ hoursToSevere: null, peakExcess: 15, aqi: 177, readingAgeMinutes: HOTSPOT_READING_STALE_MINUTES + 1 }, 36),
+    ).toBe('stale')
+  })
+
+  it('is not stale exactly at the threshold, only past it', () => {
+    expect(
+      hotspotStatus({ hoursToSevere: null, peakExcess: 15, aqi: 177, readingAgeMinutes: HOTSPOT_READING_STALE_MINUTES }, 36),
+    ).toBe('watch')
+  })
+
+  it('severe still wins over staleness - a forecast crossing threshold is not demoted by a stale current reading', () => {
+    expect(hotspotStatus({ hoursToSevere: 12, peakExcess: 15, aqi: 177, readingAgeMinutes: 3000 }, 36)).toBe('severe')
+  })
+
+  it('omitting readingAgeMinutes entirely behaves exactly as before (existing Map caller safety)', () => {
+    expect(hotspotStatus({ hoursToSevere: 50, peakExcess: 15, aqi: 177 }, 36)).toBe('watch')
+  })
+})
+
+describe('isWardDataBacked', () => {
+  it('is true when the ward has a reading timestamp', () => {
+    expect(isWardDataBacked({ ts: '2026-07-21T10:00:00Z' })).toBe(true)
+  })
+
+  it('is false when the ward has never reported (e.g. Mayapuri - proxy-only, no official station)', () => {
+    expect(isWardDataBacked({ ts: null })).toBe(false)
   })
 })
 
