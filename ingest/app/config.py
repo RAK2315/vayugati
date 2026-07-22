@@ -13,6 +13,14 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 OPENAQ_API_KEY = os.getenv("OPENAQ_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
+# Official data.gov.in CPCB AQI API key — server-side only, never logged.
+# Audit-only for now (see scripts/audit_data_gov_cpcb.py): not read by
+# app/ingest.py or app/openaq.py, and not part of require_env() below, since
+# production ingest still runs on OpenAQ exactly as before. Wiring this into
+# live ingest is a deliberate future decision, not a side effect of adding
+# the key.
+DATA_GOV_API_KEY = os.getenv("DATA_GOV_API_KEY", "")
+
 # local | test | staging | production (Phase 10, plan §4) — tags every
 # structured log line and system_health row so a pilot/production incident
 # is never confused with a local dev run hitting the same log aggregator.
