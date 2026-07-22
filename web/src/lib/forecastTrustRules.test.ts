@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   FORECAST_RUN_STALE_HOURS,
   forecastEngineStatusLine,
+  forecastPipelineStatusLabel,
   modelSelectionExplainer,
   strongestBaselineLabel,
   summarizeBaselineWinners,
@@ -183,6 +184,24 @@ describe('forecastEngineStatusLine', () => {
     const line = forecastEngineStatusLine({ totalPairs: 93, staleCount: 3, freshCount: 90, latestGeneratedAt: null })
     expect(line.toLowerCase()).not.toContain('fail')
     expect(line.toLowerCase()).not.toContain('broken')
+  })
+})
+
+describe('forecastPipelineStatusLabel', () => {
+  it('reports No data when there are no pairs at all', () => {
+    expect(forecastPipelineStatusLabel({ totalPairs: 0, staleCount: 0, freshCount: 0, latestGeneratedAt: null })).toBe('No data')
+  })
+
+  it('reports Stale when nothing has refreshed', () => {
+    expect(forecastPipelineStatusLabel({ totalPairs: 5, staleCount: 5, freshCount: 0, latestGeneratedAt: null })).toBe('Stale')
+  })
+
+  it('reports Partially live when some pairs are fresh and some are stale', () => {
+    expect(forecastPipelineStatusLabel({ totalPairs: 93, staleCount: 3, freshCount: 90, latestGeneratedAt: null })).toBe('Partially live')
+  })
+
+  it('reports Live when everything is fresh', () => {
+    expect(forecastPipelineStatusLabel({ totalPairs: 93, staleCount: 0, freshCount: 93, latestGeneratedAt: null })).toBe('Live')
   })
 })
 

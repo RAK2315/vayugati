@@ -212,6 +212,16 @@ export function forecastEngineStatusLine(coverage: ForecastCoverageSummary): str
   return `Forecasts are live for all ${coverage.totalPairs} ward/pollutant pairs.`
 }
 
+/** A single-word status for compact layouts (Overview's hero strip) - same
+ *  tiers as forecastEngineStatusLine above, condensed. Not a replacement for
+ *  that function's fuller sentence, which stays in use on Analytics. */
+export function forecastPipelineStatusLabel(coverage: ForecastCoverageSummary): string {
+  if (coverage.totalPairs === 0) return 'No data'
+  if (coverage.freshCount === 0) return 'Stale'
+  if (coverage.staleCount > 0) return 'Partially live'
+  return 'Live'
+}
+
 /** The model-selection explainer - the specific honesty-vs-alarm framing
  *  this whole feature exists to get right. */
 export function modelSelectionExplainer(mix: ForecastMethodMix): string {

@@ -106,10 +106,10 @@ export default function HotspotsRiskTable({
         title={
           <span className="flex items-center gap-1.5">
             <Flame className="h-4 w-4 text-status-warning" aria-hidden />
-            Hotspots &amp; Forecast Risk
+            Operational Hotspot Triage
           </span>
         }
-        subtitle="Ranked by current reading, city-wide - click a row for detail"
+        subtitle="Ranked by current readings, forecast risk, and local source signal."
       />
       <p className="border-b border-slate-100 px-4 py-2 text-[11px] text-slate-500">
         Showing current {MAP_POLLUTANT_LABEL[pollutant]}

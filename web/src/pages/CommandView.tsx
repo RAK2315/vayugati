@@ -1,8 +1,21 @@
 import { useState } from 'react'
-import { AlertCircle, Clock, Clock3, MapPin, Radio, RefreshCw, ShieldCheck, TrendingUp, Truck } from 'lucide-react'
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Clock3,
+  MapPin,
+  Radar,
+  Radio,
+  RefreshCw,
+  ShieldCheck,
+  TrendingUp,
+  Truck,
+} from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { Card, ErrorState, Skeleton, StaleBadge } from '../components/ui'
 import KpiStrip, { type KpiItem } from '../components/overview/KpiStrip'
+import ActionLoopStrip, { type ActionLoopStage } from '../components/overview/ActionLoopStrip'
 import PriorityAlertsPanel from '../components/overview/PriorityAlertsPanel'
 import OperationalSummaryPanel from '../components/overview/OperationalSummaryPanel'
 import HotspotsRiskTable from '../components/overview/HotspotsRiskTable'
@@ -66,17 +79,20 @@ export default function CommandView() {
   return (
     <AppShell subtitle="Overview">
       <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50 p-3 sm:p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
-          <div>
-            <h1 className="text-base font-bold text-slate-900">Overview</h1>
-            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-gradient-to-br from-accent-50 to-white px-4 py-3.5 shadow-card">
+          <div className="max-w-xl">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent-700">
               <MapPin className="h-3 w-3" aria-hidden />
               Delhi City Pack
               {state.stale && <StaleBadge />}
             </p>
-            <p className="mt-1 max-w-md text-xs text-slate-400">
-              Monitoring data provides the signal. Vayu Gati converts it into incidents, evidence requests, and
-              action workflows.
+            <h1 className="mt-1 text-lg font-bold leading-tight text-slate-900">
+              Delhi Air Response Command Centre
+            </h1>
+            <p className="mt-0.5 text-sm font-semibold text-accent-700">From monitoring to accountable action</p>
+            <p className="mt-1.5 text-xs text-slate-500">
+              Station networks show where pollution is. Vayu Gati converts that signal into incidents, evidence
+              requests, dispatch decisions, and action tracking.
             </p>
           </div>
 
@@ -206,8 +222,23 @@ export default function CommandView() {
               },
             ]
 
+            // The product's action loop, city-wide. Only stages this page
+            // already has a live count for get a number - the rest show '—'
+            // rather than a fabricated or misleading figure.
+            const actionLoopStages: ActionLoopStage[] = [
+              { key: 'monitor', label: 'Monitor', icon: Radio, value: `${stationRollup.active}/${stationRollup.total}` },
+              { key: 'detect', label: 'Detect', icon: AlertCircle, value: String(metrics.openCount) },
+              { key: 'predict', label: 'Predict', icon: TrendingUp, value: String(severeAlerts.length) },
+              { key: 'attribute', label: 'Attribute', icon: Radar, value: '—' },
+              { key: 'verify', label: 'Verify', icon: ShieldCheck, value: '—' },
+              { key: 'dispatch', label: 'Dispatch', icon: Truck, value: String(dispatchPage.totalCount) },
+              { key: 'evaluate', label: 'Evaluate', icon: CheckCircle2, value: String(metrics.resolvedCount) },
+            ]
+
             return (
               <>
+                <ActionLoopStrip stages={actionLoopStages} />
+
                 <KpiStrip items={kpis} />
 
                 <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">

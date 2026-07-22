@@ -1,8 +1,24 @@
 import { Activity } from 'lucide-react'
 import type { ForecastAccuracySummary, GatiMetrics } from '../../lib/data'
-import { forecastEngineStatusLine, modelSelectionExplainer } from '../../lib/forecastTrustRules'
+import { forecastPipelineStatusLabel } from '../../lib/forecastTrustRules'
 import type { DispatchSlaBuckets } from '../../lib/overviewRules'
 import { Card, CardHeader, Stat } from '../ui'
+
+const PIPELINE_STATUS_TONE: Record<string, string> = {
+  Live: 'text-status-success',
+  'Partially live': 'text-status-warning',
+  Stale: 'text-status-critical',
+  'No data': 'text-slate-400',
+}
+
+function TrustRow({ label, value, tone = 'text-slate-800' }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className={`font-semibold tabular-nums ${tone}`}>{value}</span>
+    </div>
+  )
+}
 
 /** A live snapshot synthesis of already-fetched data - deliberately not an
  *  "improving/worsening" trend claim, since no historical time-series
@@ -56,13 +72,17 @@ export default function OperationalSummaryPanel({
 
         <div>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Forecast trust</p>
-          <p className="text-sm text-slate-600">{forecastEngineStatusLine(accuracy.coverage)}</p>
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            <Stat value={`${accuracy.coverage.freshCount}/${accuracy.coverage.totalPairs}`} label="Forecast coverage" />
-            <Stat value={accuracy.methodMix.lightgbmCount} label="ML selected" />
-            <Stat value={accuracy.methodMix.diurnalPersistenceCount} label="Baseline fallback" />
+          <div className="space-y-1 rounded-lg bg-slate-50 px-3 py-2.5">
+            <TrustRow
+              label="Forecast pipeline"
+              value={forecastPipelineStatusLabel(accuracy.coverage)}
+              tone={PIPELINE_STATUS_TONE[forecastPipelineStatusLabel(accuracy.coverage)]}
+            />
+            <TrustRow label="Coverage" value={`${accuracy.coverage.freshCount}/${accuracy.coverage.totalPairs}`} />
+            <TrustRow label="ML selected" value={String(accuracy.methodMix.lightgbmCount)} />
+            <TrustRow label="Safer baseline" value={String(accuracy.methodMix.diurnalPersistenceCount)} />
           </div>
-          <p className="mt-2 text-sm text-slate-600">{modelSelectionExplainer(accuracy.methodMix)}</p>
+          <p className="mt-2 text-xs text-slate-500">ML is used only when it beats strong simple baselines.</p>
           {accuracy.coverage.latestGeneratedAt && (
             <p className="mt-1 text-[11px] text-slate-400">
               Latest forecast cycle: {new Date(accuracy.coverage.latestGeneratedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
