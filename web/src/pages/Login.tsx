@@ -12,7 +12,9 @@ import { supabase } from '../lib/supabase'
  * tokens, so the Commander/Field/Citizen/Ops workspaces (which reuse those
  * same tokens) are provably unaffected. All auth behaviour (handlers,
  * validation, session/role redirect) is untouched from the previous version
- * - only markup/classes changed.
+ * - only markup/classes changed. Content/copy deliberately unchanged from
+ * the prior pass (explicit product direction: visual polish only, no new
+ * headings/cards/copy).
  */
 export default function Login() {
   const { session, profile, loading } = useAuth()
@@ -55,9 +57,9 @@ export default function Login() {
 
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-[#C7EAF9] px-4 py-8 sm:px-5">
-      <div className="w-full max-w-[420px] animate-fade-in">
+      <div className="w-full max-w-[420px] animate-fade-in sm:max-w-[440px]">
         {/* Logo + tagline - one brand block, compact spacing */}
-        <div className="mb-6 flex flex-col items-center text-center">
+        <div className="mb-7 flex flex-col items-center text-center">
           <LogoWordmark className="h-auto w-[150px] sm:w-[190px]" />
           <p className="mt-3 text-base font-semibold text-[#422B1B]">जानकारी से कार्यवाही तक</p>
           <p className="text-xs text-[#422B1B]/70">From information to action</p>
@@ -66,10 +68,10 @@ export default function Login() {
         {/* Auth card */}
         <form
           onSubmit={signIn}
-          className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-card sm:p-8"
+          className="rounded-[22px] border border-[#E5E7EB] bg-white p-7 shadow-card-lg sm:p-9"
           noValidate={false}
         >
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
               <label htmlFor={emailId} className="mb-1.5 block text-xs font-semibold text-slate-700">
                 Email
@@ -82,7 +84,7 @@ export default function Login() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="auth-input min-h-[44px] w-full rounded-xl border border-[#E5E7EB] bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#422B1B] focus:ring-2 focus:ring-[#422B1B]/20"
+                className="auth-input h-12 w-full rounded-xl border border-[#E5E7EB] bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#422B1B] focus:ring-2 focus:ring-[#422B1B]/20"
               />
             </div>
             <div>
@@ -99,7 +101,7 @@ export default function Login() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="auth-input min-h-[44px] w-full rounded-xl border border-[#E5E7EB] bg-white px-3.5 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#422B1B] focus:ring-2 focus:ring-[#422B1B]/20"
+                  className="auth-input h-12 w-full rounded-xl border border-[#E5E7EB] bg-white px-4 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#422B1B] focus:ring-2 focus:ring-[#422B1B]/20"
                 />
                 <button
                   type="button"
@@ -127,11 +129,11 @@ export default function Login() {
             </p>
           )}
 
-          <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
+          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
             <button
               type="submit"
               disabled={busy}
-              className="focus-ring order-1 min-h-[44px] flex-1 rounded-xl bg-[#422B1B] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#341f14] disabled:cursor-not-allowed disabled:opacity-50 sm:order-2"
+              className="focus-ring order-1 h-12 flex-1 rounded-xl bg-[#422B1B] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#341f14] disabled:cursor-not-allowed disabled:opacity-50 sm:order-2"
             >
               {busy ? 'Please wait…' : 'Sign in'}
             </button>
@@ -139,14 +141,14 @@ export default function Login() {
               type="button"
               disabled={busy}
               onClick={signUp}
-              className="focus-ring order-2 min-h-[44px] flex-1 rounded-xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#422B1B] transition hover:bg-[#422B1B]/5 disabled:cursor-not-allowed disabled:opacity-50 sm:order-1"
+              className="focus-ring order-2 h-12 flex-1 rounded-xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#422B1B] transition hover:bg-[#422B1B]/5 disabled:cursor-not-allowed disabled:opacity-50 sm:order-1"
             >
               Sign up
             </button>
           </div>
         </form>
 
-        <p className="mt-4 text-center text-xs text-[#6B7280]">Delhi City Pack · pan-India air incident response</p>
+        <p className="mt-5 text-center text-xs text-[#6B7280]">Delhi City Pack · pan-India air incident response</p>
       </div>
     </div>
   )
