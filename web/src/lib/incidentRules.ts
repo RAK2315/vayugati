@@ -1743,3 +1743,53 @@ export function collapseRepeatedTimelineEvents<T extends { event_type: string }>
   return out
 }
 
+// ── action chain (launch positioning pass) ──────────────────────────────────
+//
+// The commander-facing "what stage is this incident at" strip - makes the
+// Monitor→...→Evaluate loop concrete for one specific incident, instead of
+// only existing as a product-level diagram in docs. Every stage's `done`
+// flag is derived from fields IncidentDetail already fetches (hypotheses,
+// missions, interventions, impactEvaluations) - no new query, no new table.
+//
+// `hasResponsibleAuthority` means the incident has actually been routed to
+// an authority (`incident.assigned_authority != null`, the same field
+// IncidentStatusHeader shows as "Not routed yet") - NOT whether a probable
+// registry match exists (that's the separate `responsibleAuthority` object
+// on IncidentDetail, which dispatchEmptyStateMessage below already uses for
+// its own, earlier-stage "is routing even possible yet" check).
+
+export type ActionChainStageKey = 'detected' | 'source' | 'evidence' | 'authority' | 'dispatch' | 'outcome'
+
+export interface ActionChainStage {
+  key: ActionChainStageKey
+  label: string
+  done: boolean
+}
+
+export interface ActionChainInput {
+  hasCurrentHypothesis: boolean
+  sourceConfidence: SourceConfidence
+  missionCount: number
+  hasResponsibleAuthority: boolean
+  interventionCount: number
+  isClosed: boolean
+  hasImpactEvaluation: boolean
+}
+
+/** Detected/Predicted is always "done" - an incident that exists has, by
+ *  definition, been detected or predicted. Every later stage reflects a
+ *  real, already-loaded fact - never inferred from a status string alone
+ *  (e.g. "Evidence" also counts a dispatched mission, not just an elevated
+ *  confidence level, since a mission can be in flight before it changes
+ *  anything). */
+export function actionChainStages(input: ActionChainInput): ActionChainStage[] {
+  return [
+    { key: 'detected', label: 'Detected / Predicted', done: true },
+    { key: 'source', label: 'Likely source', done: input.hasCurrentHypothesis },
+    { key: 'evidence', label: 'Evidence', done: input.sourceConfidence !== 'suspected' || input.missionCount > 0 },
+    { key: 'authority', label: 'Responsible authority', done: input.hasResponsibleAuthority },
+    { key: 'dispatch', label: 'Dispatch', done: input.interventionCount > 0 },
+    { key: 'outcome', label: 'Outcome evaluation', done: input.isClosed || input.hasImpactEvaluation },
+  ]
+}
+

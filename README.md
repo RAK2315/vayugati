@@ -1,9 +1,110 @@
 # Vayu Gati
 
-*Jankari se karyavahi tak* — the intelligence and accountability layer on top of
-Delhi's pollution-response loop. Full plan: [docs/build-plan.md](docs/build-plan.md).
+*जानकारी से कार्यवाही तक* — From information to action.
 
-**Current state: Phases 0–4 built.**
+## What Vayu Gati Is
+
+Vayu Gati is an air-quality incident response and enforcement intelligence
+platform.
+
+It does not replace official AQI dashboards such as CPCB. Instead, it converts
+monitoring data into ward-level risk, source hypotheses, evidence requests,
+field missions, agency routing, dispatch tracking, and action evaluation.
+
+CPCB tells cities what the air quality is.
+Vayu Gati helps cities decide what to do, who should act, and whether the
+action worked.
+
+## How Vayu Gati Differs from an AQI Dashboard
+
+| Capability | CPCB / AQI Dashboard | Vayu Gati |
+|---|---|---|
+| Official station AQI | Yes | Uses as input |
+| Pollutant sub-indexes | Yes | Uses as input |
+| Ward-level operational risk | Limited | Yes |
+| Forecast-based alerts | Limited / not action-first | Yes |
+| Source hypothesis | No / limited | Yes |
+| Evidence request workflow | No | Yes |
+| Field officer mobile workflow | No | Yes |
+| Agency routing | No | Yes |
+| Dispatch/task tracking | No | Yes |
+| Impact evaluation | No | Yes |
+| Forecast trust / model validation | Not visible | Yes |
+
+## Vayu Gati Action Loop
+
+**Monitor → Detect → Predict → Attribute → Verify → Dispatch → Track → Evaluate**
+
+- **Monitor** — reads AQ data from station networks.
+- **Detect** — identifies threshold breaches and abnormal local excess.
+- **Predict** — forecasts pollutant risk over the next 12–48 hours.
+- **Attribute** — suggests likely source categories such as road dust,
+  construction dust, vehicular, industrial, or waste.
+- **Verify** — requests field/citizen evidence before escalation.
+- **Dispatch** — routes tasks to the responsible authority.
+- **Track** — monitors SLA, status, and evidence.
+- **Evaluate** — checks whether action reduced pollution or needs follow-up.
+
+## Current Launch Scope
+
+The current launch build is Delhi-focused (the "Delhi City Pack").
+
+Available:
+- 252 ward/boundary geometries
+- 34 AQ monitoring stations
+- 45k+ readings
+- PM2.5, PM10, and NO₂ forecast pipeline
+- Strict baseline-validated forecast gate (LightGBM is used only when it beats
+  the strongest of several simple baselines; otherwise a safer baseline
+  forecast is used and shown as such — never mislabelled as ML)
+- Incident, evidence, dispatch, and analytics workflows
+- Commander desktop workflow
+- Citizen and field-officer mobile workflows
+
+Known limitations:
+- Vayu Gati does not replace CPCB or official regulatory dashboards.
+- Mayapuri has no direct station-backed data and is treated as
+  unresolved/proxy-only.
+- Pitampura is unavailable through OpenAQ in the current pipeline.
+- ITO/Pusa ward assignment requires manual review.
+- FIRMS, OSM, and weather/wind layers are planned but not part of the current
+  launch build.
+- Source attribution is a probable signal, not a confirmed violation.
+
+## Why Governments Would Use Vayu Gati
+
+Air-quality data already exists, but action coordination is fragmented.
+
+Vayu Gati helps city teams:
+- prioritise hotspot wards,
+- detect predicted deterioration,
+- identify likely source categories,
+- request field evidence,
+- route cases to the right agency,
+- track response status,
+- measure whether action worked,
+- and maintain an auditable response trail.
+
+## Recommended Demo Flow
+
+1. **Overview** — citywide risk, station health, and forecast trust.
+2. **Map** — ward boundaries, station readings, forecast context, and spatial
+   risk.
+3. **Incidents** — open a predicted or detected incident.
+4. **Source Attribution** — show probable source and evidence gaps.
+5. **Evidence** — request field/citizen verification.
+6. **Dispatch** — show routing blockers or assigned authority.
+7. **Sensors** — show data health and station freshness.
+8. **Analytics** — show forecast trust, recurrence, source mix, and agency
+   performance.
+
+---
+
+## Project history (Phases 0–4)
+
+The section below documents the original phased build-out that the current
+Delhi City Pack launch grew out of. Full plan: [docs/build-plan.md](docs/build-plan.md).
+
 - **P0** — auth + role routing, shared map, hourly ingestion of station readings
   (OpenAQ v3) and weather (Open-Meteo) into Supabase.
 - **P1** — the loop: citizen reports a source → Claude classifies it → it lands in
@@ -20,6 +121,11 @@ Delhi's pollution-response loop. Full plan: [docs/build-plan.md](docs/build-plan
 
 The forecast + attribution job runs at minute :25 each hour, after ingestion.
 `POST /intel` recomputes both on demand; `POST /classify` classifies a report.
+
+The repo layout, setup, and deploy instructions below predate the ward/station
+expansion described in "Current Launch Scope" above (they describe the
+original 13-hotspot-ward pilot) — still accurate for local setup, just not
+reflective of the current Delhi City Pack's real ward/station counts.
 
 ## Repo layout
 

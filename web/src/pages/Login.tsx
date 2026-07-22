@@ -5,16 +5,21 @@ import { LogoWordmark } from '../components/AppShell'
 import { roleHome, useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 
+/** Static launch facts only - no live query on this unauthenticated page.
+ *  Same real counts already verified live elsewhere in the app (Sensors'
+ *  Data Readiness card, Analytics' forecast trust panel). */
+const PILOT_FACTS = ['34 AQ stations connected', '252 ward boundaries loaded', 'Forecast pipeline live']
+
 /**
- * Login/auth brand surface (logo + sky-blue background redesign). Scoped
- * entirely to this page - every colour below is an explicit arbitrary-value
- * class (`bg-[#C7EAF9]` etc.), not a change to tailwind.config.js's shared
- * tokens, so the Commander/Field/Citizen/Ops workspaces (which reuse those
- * same tokens) are provably unaffected. All auth behaviour (handlers,
- * validation, session/role redirect) is untouched from the previous version
- * - only markup/classes changed. Content/copy deliberately unchanged from
- * the prior pass (explicit product direction: visual polish only, no new
- * headings/cards/copy).
+ * Login/auth brand surface. Scoped entirely to this page - every colour
+ * below is an explicit arbitrary-value class (`bg-[#C7EAF9]` etc.), not a
+ * change to tailwind.config.js's shared tokens, so the Commander/Field/
+ * Citizen/Ops workspaces (which reuse those same tokens) are provably
+ * unaffected. All auth behaviour (handlers, validation, session/role
+ * redirect) is untouched - only markup/classes/copy changed. The
+ * positioning line and pilot-facts block are launch-positioning copy
+ * (product decision, not a visual-only pass) - static facts only, no query
+ * on this unauthenticated page.
  */
 export default function Login() {
   const { session, profile, loading } = useAuth()
@@ -63,6 +68,7 @@ export default function Login() {
           <LogoWordmark className="h-auto w-[150px] sm:w-[190px]" />
           <p className="mt-3 text-base font-semibold text-[#422B1B]">जानकारी से कार्यवाही तक</p>
           <p className="text-xs text-[#422B1B]/70">From information to action</p>
+          <p className="mt-2 text-xs font-medium text-[#6B7280]">Air-quality response layer for city teams</p>
         </div>
 
         {/* Auth card */}
@@ -148,7 +154,19 @@ export default function Login() {
           </div>
         </form>
 
-        <p className="mt-5 text-center text-xs text-[#6B7280]">Delhi City Pack · pan-India air incident response</p>
+        <div className="mt-4 rounded-xl border border-[#E5E7EB] bg-white/60 px-4 py-3.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#422B1B]/70">Delhi City Pack</p>
+          <ul className="mt-1.5 space-y-1">
+            {PILOT_FACTS.map((fact) => (
+              <li key={fact} className="flex items-center gap-1.5 text-xs text-slate-600">
+                <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-status-success" aria-hidden />
+                {fact}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="mt-4 text-center text-xs text-[#6B7280]">Delhi City Pack · pan-India air incident response</p>
       </div>
     </div>
   )

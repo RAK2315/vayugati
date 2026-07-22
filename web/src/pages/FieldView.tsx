@@ -116,7 +116,7 @@ export default function FieldView() {
         {/* Evidence missions (Phase 3) - a distinct task type from the report
             action queue below, so it gets its own entry point rather than being
             mixed into a single undifferentiated list. */}
-        {missionCount != null && missionCount > 0 && (
+        {missionCount != null && missionCount > 0 ? (
           <Link
             to="/missions"
             className="focus-ring flex items-center gap-3 rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 transition hover:bg-sky-100"
@@ -131,6 +131,12 @@ export default function FieldView() {
               <span className="block text-xs text-ink-500">Checklist + geotagged proof · open them →</span>
             </span>
           </Link>
+        ) : (
+          missionCount === 0 && (
+            <p className="px-1 text-xs text-slate-400">
+              Evidence missions appear when the command centre requests field verification.
+            </p>
+          )
         )}
 
         {/* AQI + roll-up row */}
@@ -178,7 +184,7 @@ export default function FieldView() {
               {[0, 1].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
             </div>
           ) : rankedReports.length === 0 ? (
-            <EmptyState icon="✅">No open reports - all clear.</EmptyState>
+            <EmptyState icon="✅">No assigned field tasks right now.</EmptyState>
           ) : (
             <ul className="divide-y divide-slate-100">
               {rankedReports.map(({ report: r, score }, i) => {

@@ -675,7 +675,10 @@ export default function MissionsView() {
           ) : state.error ? (
             <ErrorState message={state.error} onRetry={() => state.refresh()} />
           ) : open.length === 0 ? (
-            <EmptyState icon="✅">No evidence missions assigned to you.</EmptyState>
+            <EmptyState icon="✅">
+              No evidence missions assigned to you. Evidence missions appear when the command centre requests field
+              verification.
+            </EmptyState>
           ) : (
             <ul className="divide-y divide-ink-900/5">
               {open.map((m) => {

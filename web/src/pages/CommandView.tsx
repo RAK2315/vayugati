@@ -74,6 +74,10 @@ export default function CommandView() {
               Delhi City Pack
               {state.stale && <StaleBadge />}
             </p>
+            <p className="mt-1 max-w-md text-xs text-slate-400">
+              Monitoring data provides the signal. Vayu Gati converts it into incidents, evidence requests, and
+              action workflows.
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

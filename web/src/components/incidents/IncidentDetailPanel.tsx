@@ -8,6 +8,7 @@ import TaskDispatchPanel from '../TaskDispatchPanel'
 import { ErrorState, Skeleton, TabPanel, Tabs, type TabItem } from '../ui'
 import type { AsyncState } from '../../lib/useAsync'
 import type { IncidentDetail } from '../../lib/incidents'
+import ActionChainStrip from './ActionChainStrip'
 import EmptyIncidentState from './EmptyIncidentState'
 import IncidentActionBar from './IncidentActionBar'
 import IncidentStatusHeader from './IncidentStatusHeader'
@@ -62,6 +63,17 @@ export default function IncidentDetailPanel({
         onBack={onBack}
       />
       <IncidentActionBar incident={detail.data.incident} onRefresh={onRefresh} />
+      <ActionChainStrip
+        input={{
+          hasCurrentHypothesis: detail.data.hypotheses.some((h) => h.is_current),
+          sourceConfidence: detail.data.incident.source_confidence,
+          missionCount: detail.data.missions.length,
+          hasResponsibleAuthority: detail.data.incident.assigned_authority != null,
+          interventionCount: detail.data.interventions.length,
+          isClosed: detail.data.incident.status === 'closed',
+          hasImpactEvaluation: detail.data.impactEvaluations.length > 0,
+        }}
+      />
       <Tabs tabs={DETAIL_TABS} active={activeTab} onChange={onTabChange} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <TabPanel active={activeTab === 'overview'}>
