@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Activity, Gauge, Info, MapPin, PlugZap, RefreshCw, TriangleAlert, Wind } from 'lucide-react'
+import { Activity, AlertTriangle, Database, Gauge, History, Info, MapPin, PlugZap, RefreshCw, TriangleAlert, Wind } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { ErrorState, Skeleton, StaleBadge } from '../components/ui'
 import KpiStrip, { type KpiItem } from '../components/overview/KpiStrip'
@@ -11,6 +11,7 @@ import { sensorStatus, type SensorStatus } from '../components/sensors/SensorSta
 import { useAuth } from '../lib/auth'
 import { fetchAllStationsWithReadings, fetchDataFootprint, fetchForecastAccuracySummary, fetchLatestReadingsPreferred } from '../lib/data'
 import { listIncidents } from '../lib/incidents'
+import { tallyDataSourceConfidence, timestampMismatchMinutes, TIMESTAMP_MISMATCH_MINUTES_THRESHOLD } from '../lib/latestReadingRules'
 import { fetchStationHealth, setStationActive, type StationHealthRow } from '../lib/ops'
 import type { DataReadinessInput } from '../lib/readinessRules'
 import { useAsync } from '../lib/useAsync'
@@ -110,6 +111,51 @@ export default function SensorsView() {
     }
   }, [state.loading, footprintState.data, forecastAccuracyState.data, rows])
 
+  // CPCB/data.gov vs OpenAQ reconciliation stats (message-1's "Sensors"
+  // requirement) - all plain counts over the same rows the table already
+  // fetched, nothing new requested. Undefined while the reconciliation
+  // hasn't loaded yet, never fabricated.
+  const dataFeedKpis: KpiItem[] | null = useMemo(() => {
+    const readings = latestReadingsState.data
+    if (!readings) return null
+    const tally = tallyDataSourceConfidence(readings)
+    const timestampMismatchCount = readings.filter(
+      (r) => (timestampMismatchMinutes(r.cpcbLastUpdate, r.openaqLastUpdate) ?? 0) > TIMESTAMP_MISMATCH_MINUTES_THRESHOLD,
+    ).length
+    const valueMismatchCount = readings.filter((r) => r.flags.includes('value_mismatch')).length
+    // A distinct-row count (not tally.unmatched + tally.staleOrMismatch,
+    // which can double-count a row that is both unmatched and has an
+    // independently-stale OpenAQ reading).
+    const unmatchedOrStaleCount = readings.filter(
+      (r) => !r.matched || r.flags.includes('cpcb_stale') || r.flags.includes('openaq_stale'),
+    ).length
+    return [
+      { key: 'cpcbMatched', icon: Database, label: 'CPCB/data.gov matched', value: tally.cpcbMatched, tone: 'info' },
+      { key: 'openaqFallback', icon: History, label: 'OpenAQ fallback', value: tally.openaqFallback, tone: 'neutral' },
+      {
+        key: 'timestampMismatch',
+        icon: AlertTriangle,
+        label: 'Timestamp mismatch',
+        value: timestampMismatchCount,
+        tone: timestampMismatchCount > 0 ? 'warning' : 'success',
+      },
+      {
+        key: 'valueMismatch',
+        icon: AlertTriangle,
+        label: 'Value mismatch',
+        value: valueMismatchCount,
+        tone: valueMismatchCount > 0 ? 'critical' : 'success',
+      },
+      {
+        key: 'unmatchedOrStale',
+        icon: TriangleAlert,
+        label: 'Unmatched / stale',
+        value: unmatchedOrStaleCount,
+        tone: unmatchedOrStaleCount > 0 ? 'warning' : 'success',
+      },
+    ]
+  }, [latestReadingsState.data])
+
   const toggle = async (station: SensorRow) => {
     if (!session) return
     setBusyId(station.id)
@@ -157,14 +203,15 @@ export default function SensorsView() {
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden bg-slate-50 p-3 sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
           <div>
-            <h1 className="text-base font-bold text-slate-900">Sensors</h1>
+            <h1 className="text-base font-bold text-slate-900">Data Feeds &amp; Station Health</h1>
             <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
               <MapPin className="h-3 w-3" aria-hidden />
               Delhi City Pack
               {state.stale && <StaleBadge />}
             </p>
             <p className="mt-1 max-w-xl text-xs text-slate-400">
-              Monitors CAAQMS/station freshness and reliability - the data foundation every other page depends on.
+              Monitors CPCB/data.gov and OpenAQ feed reliability, and CAAQMS/station freshness - the data foundation
+              every other page depends on.
             </p>
           </div>
           <button
@@ -172,6 +219,9 @@ export default function SensorsView() {
             onClick={() => {
               state.refresh()
               incidentsState.refresh()
+              footprintState.refresh()
+              forecastAccuracyState.refresh()
+              latestReadingsState.refresh()
             }}
             disabled={state.refreshing}
             className="focus-ring flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
@@ -190,6 +240,8 @@ export default function SensorsView() {
         ) : (
           kpis && kpis.length > 0 && <KpiStrip items={kpis} />
         )}
+
+        {!state.loading && !state.error && dataFeedKpis && <KpiStrip items={dataFeedKpis} columns={5} />}
 
         {!state.loading && !state.error && rows.length > 0 && (
           <SensorFilterBar filters={filters} onChange={setFilters} statuses={statuses} wards={wards} sensorTypes={sensorTypes} />

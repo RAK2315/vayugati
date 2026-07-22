@@ -121,12 +121,21 @@ export function hotspotStatus(
  *  tiers), tallied city-wide. An aggregate of what the Hotspot table already
  *  computes per row, not a new signal - used by Overview's Response
  *  Planning card in place of the removed team-allocation slider. */
-export function wardsNeedingReviewCount(
+export interface WardNeedingReview {
+  wardId: number
+  wardName: string
+}
+
+/** The actual wards behind wardsNeedingReviewCount's number - same
+ *  severe-or-watch check, exposed as a list so callers (e.g. Overview's
+ *  transport-activity cross-reference) can identify WHICH wards, not just
+ *  how many. */
+export function wardsNeedingReview(
   wards: WardSummary[],
   forecasts: Map<number, WardForecastSummary>,
   windowHours: TimeWindowHours,
-): number {
-  let count = 0
+): WardNeedingReview[] {
+  const result: WardNeedingReview[] = []
   for (const w of wards) {
     const forecast = forecasts.get(w.id)
     const windowed = peakWithinWindow(forecast, windowHours)
@@ -135,9 +144,17 @@ export function wardsNeedingReviewCount(
       { hoursToSevere: forecast?.hoursToSevere ?? null, peakExcess: windowed.excess, aqi: w.aqi, readingAgeMinutes },
       windowHours,
     )
-    if (status === 'severe' || status === 'watch') count++
+    if (status === 'severe' || status === 'watch') result.push({ wardId: w.id, wardName: w.name })
   }
-  return count
+  return result
+}
+
+export function wardsNeedingReviewCount(
+  wards: WardSummary[],
+  forecasts: Map<number, WardForecastSummary>,
+  windowHours: TimeWindowHours,
+): number {
+  return wardsNeedingReview(wards, forecasts, windowHours).length
 }
 
 /** Same "first populated checkpoint column" fallback already duplicated in

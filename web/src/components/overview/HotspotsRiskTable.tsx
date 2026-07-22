@@ -1,7 +1,8 @@
-import { Fragment } from 'react'
-import { Bus, ChevronDown, ChevronRight, Clock, Flame } from 'lucide-react'
+import { Fragment, useState } from 'react'
+import { Bus, ChevronDown, ChevronRight, Clock, Flame, Info } from 'lucide-react'
 import { aqiLevel } from '../AqiBadge'
 import type { LatestReadingReconciliation, TransportActivityWard, WardForecastSummary, WardSummary } from '../../lib/data'
+import { aqSourceLabel, dataConfidenceLevel, DATA_CONFIDENCE_LABEL, type DataConfidenceLevel } from '../../lib/latestReadingRules'
 import { MAP_POLLUTANT_LABEL, type MapPollutant } from '../../lib/mapRules'
 import {
   hotspotStatus,
@@ -118,6 +119,45 @@ function CurrentReadingBadge({
   )
 }
 
+const AQ_SOURCE_TONE: Record<string, string> = {
+  CPCB: 'text-accent-700 ring-accent-200 bg-accent-50',
+  OpenAQ: 'text-slate-600 ring-slate-200 bg-slate-50',
+  Review: 'text-status-warning ring-status-warning/30 bg-status-warning/10',
+}
+
+/** Which source is actually behind this ward's displayed AQI - see
+ *  aqSourceLabel() in latestReadingRules.ts. "—" (not fabricated) when the
+ *  reconciliation hasn't loaded for this ward. */
+function AqSourceBadge({ preferred }: { preferred: LatestReadingReconciliation | undefined }) {
+  if (!preferred) return <span className="text-slate-300">—</span>
+  const label = aqSourceLabel(preferred)
+  return (
+    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${AQ_SOURCE_TONE[label]}`}>
+      {label}
+    </span>
+  )
+}
+
+const DATA_CONFIDENCE_TONE: Record<DataConfidenceLevel, string> = {
+  matched: 'text-status-success ring-status-success/30 bg-status-success/10',
+  stale: 'text-status-warning ring-status-warning/30 bg-status-warning/10',
+  mismatch: 'text-status-critical ring-status-critical/30 bg-status-critical/10',
+  no_data: 'text-slate-400 ring-slate-200 bg-slate-50',
+}
+
+function DataConfidenceBadge({ preferred }: { preferred: LatestReadingReconciliation | undefined }) {
+  if (!preferred) return <span className="text-slate-300">—</span>
+  const level = dataConfidenceLevel(preferred)
+  return (
+    <span
+      title={preferred.flags.length > 0 ? `Flags: ${preferred.flags.join(', ')}` : undefined}
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${DATA_CONFIDENCE_TONE[level]}`}
+    >
+      {DATA_CONFIDENCE_LABEL[level]}
+    </span>
+  )
+}
+
 /** AQI has no forecast of its own (forecast.py never computes the composite
  *  index) - PM2.5/PM10/NO2 all do (forecast.py's DEFAULT_ENABLED_POLLUTANTS).
  *  Matches the same proxy convention Map uses (forecastPollutantFor). */
@@ -159,6 +199,7 @@ export default function HotspotsRiskTable({
   const forecastPollutant = forecastPollutantFor(pollutant)
   const forecastPollutantLabel = MAP_POLLUTANT_LABEL[forecastPollutant]
   const isProxy = pollutant === 'aqi'
+  const [infoOpen, setInfoOpen] = useState(false)
 
   return (
     <Card className="flex min-h-0 flex-col overflow-hidden">
@@ -224,6 +265,18 @@ export default function HotspotsRiskTable({
               <th className="px-3 py-1.5 font-semibold">Likely Source</th>
               <th className="px-3 py-1.5 font-semibold">Status</th>
               <th className="px-3 py-1.5 font-semibold">Age</th>
+              <th
+                className="px-3 py-1.5 font-semibold"
+                title="Which source is behind the AQI shown - CPCB/data.gov preferred, OpenAQ fallback, or Review (unmatched/disagreeing)."
+              >
+                AQ Source
+              </th>
+              <th
+                className="px-3 py-1.5 font-semibold"
+                title="Matched (clean) · Stale (source data older than 3h) · Mismatch (CPCB and OpenAQ disagree) · No data (unmatched or nothing usable)."
+              >
+                Confidence
+              </th>
               <th
                 className="px-3 py-1.5 font-semibold"
                 title="Public transport activity via Delhi Open Transit Data. Context layer only — not proof of emissions or congestion."
@@ -298,6 +351,12 @@ export default function HotspotsRiskTable({
                     </td>
                     <td className="px-3 py-1.5 tabular-nums text-slate-500">{timeAgo(ward.ts)}</td>
                     <td className="px-3 py-1.5">
+                      <AqSourceBadge preferred={latestReadingsByWard?.get(ward.id)} />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <DataConfidenceBadge preferred={latestReadingsByWard?.get(ward.id)} />
+                    </td>
+                    <td className="px-3 py-1.5">
                       <TransitActivityBadge activity={transitActivityByWard?.get(ward.id)} />
                     </td>
                     <td className="px-2 py-1.5 text-slate-300">
@@ -306,7 +365,7 @@ export default function HotspotsRiskTable({
                   </tr>
                   {selected && (
                     <tr className="bg-accent-50/60">
-                      <td colSpan={9} className="px-3 py-3">
+                      <td colSpan={11} className="px-3 py-3">
                         <div className="flex flex-wrap gap-x-8 gap-y-2 text-xs text-slate-600">
                           <span>
                             <span className="font-semibold text-slate-500">PM2.5 now:</span>{' '}
@@ -335,25 +394,39 @@ export default function HotspotsRiskTable({
         </table>
       </div>
       {wards.length === 0 && <p className="px-4 py-6 text-center text-sm text-slate-400">No ward data available.</p>}
-      <div className="space-y-1 border-t border-slate-100 px-4 py-2 text-[11px] text-slate-400">
-        <p>
-          {pollutant === 'aqi'
-            ? 'Current reading is colour-coded on the India NAQI scale.'
-            : 'Current reading shown in µg/m³ — colour bands apply to the AQI view only.'}{' '}
-          {isProxy
-            ? 'Forecast peaks are shown only for pollutants with validated forecast data - AQI itself is not forecast, so PM2.5 is shown as a risk signal instead.'
-            : `Forecast Peak and Local Excess are both ${forecastPollutantLabel}, matching the selected metric.`}
-        </p>
-        <p>
-          Likely Source is a preliminary citywide signal, not confirmed evidence - source confidence is only refined
-          per-incident with citizen, field, or authority evidence in the Incidents workspace. Forecast Confidence
-          reflects the forecast model's own reliability at its predicted peak, not confidence in the likely source.
-        </p>
-        {pollutant === 'aqi' && (
-          <p>
-            Latest readings: CPCB/data.gov preferred · OpenAQ fallback. AQI computed using CPCB breakpoint logic.
-          </p>
-        )}
+      <div className="flex items-center gap-1.5 border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500">
+        <span>Latest readings: CPCB/data.gov preferred · OpenAQ fallback · AQI computed using CPCB breakpoints.</span>
+        <div className="relative flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setInfoOpen((v) => !v)}
+            aria-label="More about how this table is read"
+            className="focus-ring rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden />
+          </button>
+          {infoOpen && (
+            <div className="absolute bottom-full right-0 z-10 mb-1.5 w-72 rounded-lg border border-slate-200 bg-white p-2.5 text-[11px] leading-relaxed text-slate-600 shadow-card-lg">
+              <p>
+                {pollutant === 'aqi'
+                  ? 'Current reading is colour-coded on the India NAQI scale.'
+                  : 'Current reading shown in µg/m³ — colour bands apply to the AQI view only.'}{' '}
+                {isProxy
+                  ? 'Forecast peaks are shown only for pollutants with validated forecast data - AQI itself is not forecast, so PM2.5 is shown as a risk signal instead.'
+                  : `Forecast Peak and Local Excess are both ${forecastPollutantLabel}, matching the selected metric.`}
+              </p>
+              <p className="mt-1.5">
+                Likely Source is a preliminary citywide signal, not confirmed evidence - refined per-incident with
+                citizen, field, or authority evidence in Incidents. Forecast Confidence is the model's own
+                reliability at its predicted peak, not confidence in the likely source.
+              </p>
+              <p className="mt-1.5">
+                AQ Source/Confidence reflect the CPCB/data.gov vs OpenAQ reconciliation for this ward's station -
+                Review means unmatched or a real value disagreement, not necessarily bad data.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </Card>
   )

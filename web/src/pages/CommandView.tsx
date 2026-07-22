@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { Card, ErrorState, Skeleton, StaleBadge } from '../components/ui'
+import DataSourceConfidenceStrip from '../components/overview/DataSourceConfidenceStrip'
 import PriorityAlertsPanel from '../components/overview/PriorityAlertsPanel'
 import OperationalSummaryPanel from '../components/overview/OperationalSummaryPanel'
 import HotspotsRiskTable from '../components/overview/HotspotsRiskTable'
@@ -18,6 +19,7 @@ import {
   fetchTransportActivity,
 } from '../lib/data'
 import { listActiveTaskDispatches } from '../lib/incidents'
+import { tallyDataSourceConfidence } from '../lib/latestReadingRules'
 import { forecastPollutantFor, type MapPollutant } from '../lib/mapRules'
 import { fetchStationHealth } from '../lib/ops'
 import {
@@ -25,7 +27,7 @@ import {
   rollupStationHealth,
   severeWardsWithin,
   tallySourceMix,
-  wardsNeedingReviewCount,
+  wardsNeedingReview,
   type TimeWindowHours,
 } from '../lib/overviewRules'
 import { useAsync } from '../lib/useAsync'
@@ -82,10 +84,7 @@ export default function CommandView() {
               {state.stale && <StaleBadge />}
             </div>
             <p className="mt-0.5 text-xs font-medium text-slate-500">
-              Air response command centre · From monitoring to accountable action
-            </p>
-            <p className="mt-0.5 text-xs text-slate-400">
-              Station data is converted into hotspot triage, forecast risk, evidence needs, and action tracking.
+              Air response command centre · Official AQ readings, forecast risk, and action tracking.
             </p>
           </div>
 
@@ -94,6 +93,8 @@ export default function CommandView() {
             onClick={() => {
               state.refresh()
               forecastsState.refresh()
+              transitState.refresh()
+              latestReadingsState.refresh()
             }}
             disabled={state.refreshing}
             className="focus-ring flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
@@ -132,13 +133,21 @@ export default function CommandView() {
             const slaBuckets = bucketDispatchSla(dispatchPage.rows)
             const sourceMix = tallySourceMix(wards)
             const stationRollup = rollupStationHealth(stationHealth)
-            const reviewCount = wardsNeedingReviewCount(wards, forecasts, windowHours)
+            const reviewWards = wardsNeedingReview(wards, forecasts, windowHours)
             const transitByWard = new Map((transitState.data?.perWard ?? []).map((w) => [w.wardId, w]))
             const latestReadingsByWard = new Map(
               (latestReadingsState.data ?? [])
                 .filter((r) => r.wardId != null)
                 .map((r) => [r.wardId as number, r]),
             )
+            const dataSourceTally = latestReadingsState.data ? tallyDataSourceConfidence(latestReadingsState.data) : null
+            // Cross-reference two already-fetched summaries (severe/watch
+            // wards x real nearby transit activity) - no new fetch, nothing
+            // fabricated when either summary hasn't loaded.
+            const highRiskHotspots = reviewWards
+              .map((w) => ({ wardName: w.wardName, activity: transitByWard.get(w.wardId) }))
+              .filter((h): h is { wardName: string; activity: NonNullable<typeof h.activity> } => !!h.activity && h.activity.vehicleCount > 0)
+              .map((h) => ({ wardName: h.wardName, vehicleCount: h.activity.vehicleCount }))
 
             return (
               <>
@@ -155,7 +164,9 @@ export default function CommandView() {
                   latestReadingsByWard={latestReadingsByWard}
                 />
 
-                <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+                <DataSourceConfidenceStrip tally={dataSourceTally} transit={transitState.data} />
+
+                <div className="grid items-start gap-4 lg:grid-cols-[1.3fr_1fr]">
                   <PriorityAlertsPanel
                     alerts={severeAlerts}
                     windowHours={windowHours}
@@ -170,10 +181,14 @@ export default function CommandView() {
                   <ResponsePlanningPanel
                     activeDispatches={dispatchPage.totalCount}
                     overdue={slaBuckets.overdue}
-                    wardsNeedingReview={reviewCount}
+                    wardsNeedingReview={reviewWards.length}
                   />
-                  <SensorHealthSnapshot rollup={stationRollup} />
-                  <TransportActivityPanel summary={transitState.data} />
+                  <SensorHealthSnapshot rollup={stationRollup} dataSourceTally={dataSourceTally} />
+                  <TransportActivityPanel
+                    summary={transitState.data}
+                    onRetry={() => transitState.refresh()}
+                    highRiskHotspots={highRiskHotspots}
+                  />
                 </div>
               </>
             )

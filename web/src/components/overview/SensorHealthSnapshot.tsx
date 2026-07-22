@@ -1,5 +1,6 @@
-import { Radio } from 'lucide-react'
+import { Database, Radio } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import type { DataSourceTally } from '../../lib/latestReadingRules'
 import type { StationHealthRollup } from '../../lib/overviewRules'
 import { Card, CardHeader } from '../ui'
 
@@ -14,8 +15,19 @@ const SEGMENT_TONE = {
  *  reading means the upstream feed hasn't published recently, not that the
  *  app's own monitoring is broken - the copy here says so explicitly rather
  *  than implying a fault, especially in the (real, current) case where every
- *  connected station is stale at once. */
-export default function SensorHealthSnapshot({ rollup }: { rollup: StationHealthRollup }) {
+ *  connected station is stale at once.
+ *
+ *  Renamed "Feed Health" (from "Sensor Health") - it now covers the
+ *  CPCB/data.gov vs OpenAQ reconciliation too, not just OpenAQ-sourced
+ *  freshness alone. `dataSourceTally` is optional and additive: undefined
+ *  (reconciliation not loaded yet) just omits that row, never fabricated. */
+export default function SensorHealthSnapshot({
+  rollup,
+  dataSourceTally,
+}: {
+  rollup: StationHealthRollup
+  dataSourceTally?: DataSourceTally | null
+}) {
   const fresh = rollup.active - rollup.stale
   const segments = [
     { key: 'fresh' as const, count: fresh, label: 'Fresh' },
@@ -30,7 +42,7 @@ export default function SensorHealthSnapshot({ rollup }: { rollup: StationHealth
         title={
           <span className="flex items-center gap-1.5">
             <Radio className="h-4 w-4 text-accent-600" aria-hidden />
-            Sensor Health
+            Feed Health
           </span>
         }
         right={
@@ -46,6 +58,15 @@ export default function SensorHealthSnapshot({ rollup }: { rollup: StationHealth
         <p className="text-sm text-slate-600">
           <span className="font-semibold text-slate-800">{rollup.total}</span> stations connected
         </p>
+
+        {dataSourceTally && (
+          <div className="flex items-center gap-1.5 text-xs">
+            <Database className="h-3.5 w-3.5 flex-shrink-0 text-accent-600" aria-hidden />
+            <span className="font-semibold text-accent-700">{dataSourceTally.cpcbMatched} CPCB</span>
+            <span className="text-slate-300">·</span>
+            <span className="font-semibold text-slate-500">{dataSourceTally.openaqFallback} OpenAQ fallback</span>
+          </div>
+        )}
 
         {allStale ? (
           <p className="text-xs text-status-warning">

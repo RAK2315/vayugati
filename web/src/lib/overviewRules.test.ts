@@ -12,6 +12,7 @@ import {
   rollupStationHealth,
   severeWardsWithin,
   tallySourceMix,
+  wardsNeedingReview,
   wardsNeedingReviewCount,
 } from './overviewRules'
 import type { ActiveTaskDispatch, Incident } from './incidents'
@@ -213,6 +214,24 @@ describe('wardsNeedingReviewCount', () => {
 
   it('returns 0 for an empty ward list', () => {
     expect(wardsNeedingReviewCount([], new Map(), 36)).toBe(0)
+  })
+})
+
+describe('wardsNeedingReview', () => {
+  it('returns the qualifying wards themselves, not just a count', () => {
+    const wards = [ward({ id: 1, name: 'Wazirpur' }), ward({ id: 2, name: 'Rohini', aqi: 60 })]
+    const forecasts = new Map<number, WardForecastSummary>([[1, forecast({ wardId: 1, hoursToSevere: 5 })]])
+    const result = wardsNeedingReview(wards, forecasts, 36)
+    expect(result).toEqual([{ wardId: 1, wardName: 'Wazirpur' }])
+  })
+
+  it('agrees with wardsNeedingReviewCount on the count', () => {
+    const wards = [ward({ id: 1 }), ward({ id: 2 })]
+    const forecasts = new Map<number, WardForecastSummary>([
+      [1, forecast({ wardId: 1, hoursToSevere: 5 })],
+      [2, forecast({ wardId: 2, hoursToSevere: 10 })],
+    ])
+    expect(wardsNeedingReview(wards, forecasts, 36).length).toBe(wardsNeedingReviewCount(wards, forecasts, 36))
   })
 })
 

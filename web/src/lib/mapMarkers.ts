@@ -85,6 +85,12 @@ export interface MapMarker {
   pulsing?: boolean
   /** Incident modifier: a small flag corner-badge (has an active dispatch). */
   hasDispatch?: boolean
+  /** Station modifier: a small accent-coloured dot (bottom-left corner) when
+   *  CPCB/data.gov is the confirmed, fresh source behind this marker's AQI -
+   *  see docs/data/cpcb-data-gov-primary-latest-integration-report.md.
+   *  Undefined/false (OpenAQ fallback, or the reconciliation hasn't loaded)
+   *  shows no dot at all - the default, unmarked state. */
+  isCpcbSourced?: boolean
   /** Source-attribution layer: overrides the normal AQI/severity colour with
    *  the leading source category's colour (see SOURCE_CATEGORY_HEX above). */
   colorOverride?: string | null
@@ -189,6 +195,12 @@ export function createMarkerElement(marker: MapMarker): HTMLDivElement {
     if (marker.isStale) {
       const dot = document.createElement('span')
       dot.style.cssText = `position:absolute; top:-2px; right:-2px; width:8px; height:8px; border-radius:50%; background:${status.warning}; border:1.5px solid #fff;`
+      el.appendChild(dot)
+    }
+    if (marker.isCpcbSourced) {
+      const dot = document.createElement('span')
+      dot.title = 'CPCB/data.gov preferred'
+      dot.style.cssText = `position:absolute; bottom:-2px; left:-2px; width:8px; height:8px; border-radius:50%; background:${accent[500]}; border:1.5px solid #fff;`
       el.appendChild(dot)
     }
     return el

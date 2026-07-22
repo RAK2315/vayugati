@@ -1,6 +1,11 @@
-import { Bus } from 'lucide-react'
+import { Bus, RefreshCw } from 'lucide-react'
 import type { TransportActivitySummary } from '../../lib/data'
 import { Card, CardHeader, Stat } from '../ui'
+
+export interface HighRiskTransitHotspot {
+  wardName: string
+  vehicleCount: number
+}
 
 /**
  * Public transport activity context - a signal, never proof. Never labelled
@@ -9,8 +14,27 @@ import { Card, CardHeader, Stat } from '../ui'
  * `summary` is null when the ingest service itself couldn't be reached at
  * all (distinct from a reachable-but-empty summary, which still renders
  * with its own `unavailableReason`).
+ *
+ * The unavailable state is commonly just a startup race (the ingest
+ * service's first scheduled refresh hasn't landed yet - see docs/data/
+ * final-overview-source-aware-ui-fix-report.md), not a real failure - a
+ * direct Retry action here recovers from that without needing to know the
+ * page-level Refresh button now also re-fetches this.
  */
-export default function TransportActivityPanel({ summary }: { summary: TransportActivitySummary | null }) {
+export default function TransportActivityPanel({
+  summary,
+  onRetry,
+  highRiskHotspots,
+}: {
+  summary: TransportActivitySummary | null
+  onRetry?: () => void
+  /** Wards that are both currently high-risk (severe/trending up) AND have
+   *  real nearby transit activity right now - a cross-reference of two
+   *  already-fetched summaries, computed by the caller. Undefined while
+   *  either summary hasn't loaded yet; empty array once both have loaded
+   *  and nothing qualifies. */
+  highRiskHotspots?: HighRiskTransitHotspot[]
+}) {
   const unavailableReason = summary?.unavailableReason ?? (summary ? null : 'Transit service unreachable')
 
   return (
@@ -26,12 +50,44 @@ export default function TransportActivityPanel({ summary }: { summary: Transport
       />
       <div className="space-y-2.5 px-4 py-3.5">
         {unavailableReason ? (
-          <p className="text-sm text-slate-400">Transport activity data unavailable right now.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
-            <Stat value={summary!.liveBusesTracked ?? '—'} label="Live buses tracked" />
-            <Stat value={summary!.activeRoutes ?? '—'} label="Active routes" />
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm text-slate-400">Transport activity data unavailable right now.</p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="focus-ring flex flex-shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-accent-600 hover:bg-accent-50"
+              >
+                <RefreshCw className="h-3 w-3" aria-hidden />
+                Retry
+              </button>
+            )}
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <Stat value={summary!.liveBusesTracked ?? '—'} label="Live buses tracked" />
+              <Stat value={summary!.activeRoutes ?? '—'} label="Active routes" />
+            </div>
+            {highRiskHotspots && highRiskHotspots.length > 0 && (
+              <div>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  High-risk hotspots with transit activity
+                </p>
+                <ul className="flex flex-wrap gap-1.5">
+                  {highRiskHotspots.map((h) => (
+                    <li
+                      key={h.wardName}
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-600"
+                    >
+                      {h.wardName}
+                      <span className="font-semibold text-slate-800">{h.vehicleCount}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         )}
         <p className="text-xs text-slate-500">Context layer only — not proof of emissions or congestion.</p>
       </div>

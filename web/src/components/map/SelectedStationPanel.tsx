@@ -92,6 +92,17 @@ export default function SelectedStationPanel({
         )}
       </div>
 
+      <div className="mb-3 rounded-lg bg-slate-50 px-2.5 py-2 text-[11px] leading-relaxed text-slate-500">
+        <p>
+          <span className="font-semibold text-slate-700">Latest source:</span>{' '}
+          {station.readingSource === 'cpcb' ? 'CPCB/data.gov preferred' : 'OpenAQ fallback'}
+        </p>
+        <p>
+          <span className="font-semibold text-slate-700">Forecast history:</span> OpenAQ
+        </p>
+        <p>AQI computed using CPCB breakpoint logic.</p>
+      </div>
+
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
         <div>
           <dt className="text-slate-400">{MAP_POLLUTANT_LABEL[pollutant]}</dt>
@@ -100,14 +111,7 @@ export default function SelectedStationPanel({
           </dd>
         </div>
         <div>
-          <dt className="text-slate-400">
-            AQI
-            {station.readingSource && (
-              <span className="ml-1 font-normal normal-case text-slate-400">
-                ({station.readingSource === 'cpcb' ? 'CPCB/data.gov' : 'OpenAQ fallback'})
-              </span>
-            )}
-          </dt>
+          <dt className="text-slate-400">AQI</dt>
           <dd className="font-semibold tabular-nums text-slate-800">{station.aqi ?? '—'}</dd>
         </div>
         <div>

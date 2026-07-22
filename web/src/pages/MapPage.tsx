@@ -276,10 +276,13 @@ export default function MapPage() {
                 label: s.name,
                 aqi: displayAqi,
                 isStale,
+                isCpcbSourced: usingCpcb,
                 popupHtml: popup(s.name, [
                   `AQI ${displayAqi ?? '-'}`,
                   health?.ward_name ? health.ward_name : '',
-                  `Latest reading: ${usingCpcb ? 'CPCB/data.gov preferred' : 'OpenAQ fallback'}`,
+                  `Latest source: ${usingCpcb ? 'CPCB/data.gov preferred' : 'OpenAQ fallback'}`,
+                  'Forecast history: OpenAQ',
+                  'AQI computed using CPCB breakpoint logic.',
                 ]),
               }
             })
@@ -505,10 +508,21 @@ export default function MapPage() {
     }
   }, [selection, wardBoundaries, stationHealth, stations, stationHealthById, incidents, forecasts, pollutant, forecastPollutant])
 
+  // Same "must refresh every independent fetch, not just the main bundle"
+  // fix as Overview's Refresh button - transitState/latestReadingsState
+  // otherwise stay on whatever they resolved to on first mount (commonly
+  // "unavailable" if the ingest service's first scheduled refresh hadn't
+  // landed yet) even after the visible Refresh button is clicked.
+  const refreshAll = () => {
+    state.refresh()
+    transitState.refresh()
+    latestReadingsState.refresh()
+  }
+
   return (
     <AppShell subtitle="Map">
       <div className="flex min-h-0 flex-1 flex-col">
-        <MapPageHeader stale={state.stale} fetchedAt={state.fetchedAt} refreshing={state.refreshing} onRefresh={state.refresh} />
+        <MapPageHeader stale={state.stale} fetchedAt={state.fetchedAt} refreshing={state.refreshing} onRefresh={refreshAll} />
 
         {state.loading ? (
           <div className="flex-1 p-4">
@@ -530,7 +544,7 @@ export default function MapPage() {
               severityFilter={severityFilter}
               onSeverityFilterChange={setSeverityFilter}
               onResetView={() => setResetToken((t) => t + 1)}
-              onRefresh={state.refresh}
+              onRefresh={refreshAll}
               refreshing={state.refreshing}
             />
             <div className="flex min-h-0 flex-1">

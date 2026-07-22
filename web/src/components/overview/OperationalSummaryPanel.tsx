@@ -34,7 +34,7 @@ export default function OperationalSummaryPanel({
         }
         subtitle="Live snapshot of the current queue and forecast trust"
       />
-      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-3.5">
+      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
         <p className="text-sm text-slate-600">
           <span className="font-semibold text-slate-800">{metrics.openCount}</span> incidents open,{' '}
           <span className="font-semibold text-slate-800">{metrics.resolvedCount}</span> resolved with a recorded
@@ -50,19 +50,23 @@ export default function OperationalSummaryPanel({
         </p>
 
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             Active dispatch SLA
           </p>
-          <div className="grid grid-cols-4 gap-2">
-            <Stat value={slaBuckets.overdue} label="Overdue" accent="text-status-critical" />
-            <Stat value={slaBuckets.dueSoon} label="Due soon" accent="text-status-warning" />
-            <Stat value={slaBuckets.onTrack} label="On track" accent="text-status-success" />
-            <Stat value={slaBuckets.noSla} label="No SLA" accent="text-slate-500" />
-          </div>
+          {slaBuckets.overdue + slaBuckets.dueSoon + slaBuckets.onTrack + slaBuckets.noSla === 0 ? (
+            <p className="text-xs text-slate-400">No active dispatches right now.</p>
+          ) : (
+            <div className="grid grid-cols-4 gap-2">
+              <Stat value={slaBuckets.overdue} label="Overdue" accent="text-status-critical" />
+              <Stat value={slaBuckets.dueSoon} label="Due soon" accent="text-status-warning" />
+              <Stat value={slaBuckets.onTrack} label="On track" accent="text-status-success" />
+              <Stat value={slaBuckets.noSla} label="No SLA" accent="text-slate-500" />
+            </div>
+          )}
         </div>
 
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Forecast trust</p>
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Forecast trust</p>
           <div className="grid grid-cols-2 gap-2">
             <Stat
               value={forecastPipelineStatusLabel(accuracy.coverage)}
@@ -72,7 +76,7 @@ export default function OperationalSummaryPanel({
             <Stat value={`${accuracy.coverage.freshCount}/${accuracy.coverage.totalPairs}`} label="Coverage" />
           </div>
 
-          <div className="mt-3">
+          <div className="mt-2">
             <div className="flex h-2 overflow-hidden rounded-full bg-slate-100">
               {accuracy.methodMix.total > 0 && (
                 <>
@@ -101,7 +105,7 @@ export default function OperationalSummaryPanel({
             </div>
           </div>
 
-          <p className="mt-2 text-xs text-slate-500">ML is used only when it beats strong simple baselines.</p>
+          <p className="mt-1.5 text-xs text-slate-500">ML is used only when it beats strong simple baselines.</p>
           {accuracy.coverage.latestGeneratedAt && (
             <p className="mt-1 text-[11px] text-slate-400">
               Latest forecast cycle: {new Date(accuracy.coverage.latestGeneratedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}

@@ -140,6 +140,10 @@ export default function MapLegend({
               <Swatch color="#D97706" shape="ring" />
               Stale (dashed ring + warning dot)
             </li>
+            <li className="flex items-center gap-1.5">
+              <Swatch color="#0F6CBD" shape="square" />
+              CPCB/data.gov preferred (blue dot, bottom-left) - no dot means OpenAQ fallback
+            </li>
           </ul>
 
           {sourceAttributionOn && (
